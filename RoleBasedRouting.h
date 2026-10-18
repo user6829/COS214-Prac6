@@ -10,7 +10,7 @@ private:
 std::string targetRole;
 
 public:
-std::string determineAssignee( const context& WorkflowContext) override;
+std::string determineAssignee( const LeafWorkItem& WorkflowContext) override;
 ~RoleBasedRouting() override = default;
 };
 
