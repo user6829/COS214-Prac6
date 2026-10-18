@@ -4,7 +4,7 @@
 
 class RoutingStrategy {
 public:
-virtual std::string determineAssignee( const context& WorkflowContext) = 0;
+virtual std::string determineAssignee( const LeafWorkItem& WorkflowContext) = 0;
 virtual ~RoutingStrategy = default;
 };
 #endif
