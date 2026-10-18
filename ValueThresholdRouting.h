@@ -10,7 +10,7 @@ std::string lowValueRole;
 int thresholdAmount;
 
 public:
-std::string determineAssignee( const context& WorkflowContext) override;
+std::string determineAssignee( const LeafWorkItem& WorkflowContext) override;
 ~ValueThresholdRouting() override = default;
 };
 
