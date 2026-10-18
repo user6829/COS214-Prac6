@@ -1,6 +1,7 @@
 #ifndef ROUTINGSTRATEGY_H
 #define ROUTINGSTRATEGY_H
 #include <string>
+class LeafWorkItem;
 
 class RoutingStrategy {
 public:
