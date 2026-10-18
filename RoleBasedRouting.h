@@ -3,7 +3,7 @@
 #include <string>
 #include "RoutingStrategy.h"
 
-
+class LeafWorkItem;
 
 class RoleBasedRouting : public RoutingStrategy  {
 private:
