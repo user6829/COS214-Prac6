@@ -2,6 +2,7 @@
 #define VALUETHRESHOLDROUTING_H
 #include <string>
 #include "RoutingStrategy.h"
+class LeafWorkItem;
 
 class ValueThresholdRouting : public RoutingStrategy  {
 private:
