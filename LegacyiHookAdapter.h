@@ -1,0 +1,4 @@
+#ifndef LEGACYIHOOKADAPTER_H
+#define LEGACYIHOOKADAPTER_H
+
+#endif  
