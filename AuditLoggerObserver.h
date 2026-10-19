@@ -1,0 +1,4 @@
+#ifndef AUDITLOGGEROBSERVER_H
+#define AUDITLOGGEROBSERVER_H
+
+#endif
