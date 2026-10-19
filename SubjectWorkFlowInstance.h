@@ -11,8 +11,8 @@ class SubjectWorkFlowInstance
 {
 protected:
     std::string instaceID;
-    std::vector<EventObserver> observsers;
-    WorkflowContext currentContext;
+    std::vector<EventObserver>* observsers;
+    WorkflowContext* currentContext;
 public:
     virtual void attach(EventObserver obs) = 0;
     virtual void detach(EventObserver obs) = 0;
