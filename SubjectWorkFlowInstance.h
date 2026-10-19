@@ -9,7 +9,7 @@ class WorkflowContext;
 
 class SubjectWorkFlowInstance
 {
-private:
+protected:
     std::string instaceID;
     std::vector<EventObserver> observsers;
     WorkflowContext currentContext;
