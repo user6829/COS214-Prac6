@@ -1,0 +1,4 @@
+#ifndef WORKFLOWCONTEXT_H
+#define WORKFLOWCONTEXT_H
+
+#endif
