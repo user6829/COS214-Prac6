@@ -1,0 +1,4 @@
+#ifndef LEGACYIHOOKAPI_H
+#define LEGACYIHOOKAPI_H
+
+#endif  
