@@ -3,7 +3,7 @@
 
 #include "SubjectWorkFlowInstance.h"
 
-class WorkflowInstance
+class WorkflowInstance : public SubjectWorkFlowInstance
 {
 public:
     void attach(EventObserver obs);
