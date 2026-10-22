@@ -4,10 +4,11 @@
 #include <map>
 #include <string>
 
+template <typename A, typename B>
 class ExternalSystemConnector
 {
 public:
-    virtual bool sendPayload(const std::map<std::string, std::string>& payload) = 0;
+    virtual bool sendPayload(const std::map<A,B>& payload) = 0;
 };
 
 #endif  
