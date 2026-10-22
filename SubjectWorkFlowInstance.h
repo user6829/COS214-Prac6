@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include "WorkflowMemento.h"
 
 class EventObserver;
 class WorkflowContext;
