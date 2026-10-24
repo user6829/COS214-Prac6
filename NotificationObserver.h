@@ -2,11 +2,12 @@
 #define NOTIFICATIONOBSERVER_H
 
 #include "EventObserver.h"
+#include <iostream>
 
 class NotificationObserver : public EventObserver
 {
 public:
-    void onEvent(std::string eventName, std::string instanceID);
+    void update(SubjectWorkFlowInstance& s);
 };
 
 #endif
