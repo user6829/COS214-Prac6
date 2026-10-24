@@ -2,11 +2,14 @@
 #define EVENTOBSERVER_H
 
 #include <string>
+#include <iostream>
+#include "SubjectWorkFlowInstance.h"
 
 class EventObserver
 {
 public:
-    virtual void onEvent(std::string eventName, std::string instaceID) = 0;
+    virtual void update(SubjectWorkFlowInstance& s) = 0;
+    virtual ~EventObserver(){};
 };
 
 #endif
