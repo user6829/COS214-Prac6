@@ -6,6 +6,6 @@
 class AuditLoggerObserver : public EventObserver
 {
 public:
-    void onEvent(std::string eventName, std::string instanceID);
+    void update(SubjectWorkFlowInstance& s);
 };
 #endif
