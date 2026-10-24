@@ -4,14 +4,20 @@
 #include <map>
 #include <string>
 
-template <typename A, typename B>
+
+
+template <typename A>
 class WorkflowContext
 {
 private:
-    std::map<A,B> dataPayload;
+    std::map<std::string,A> dataPayload;
 public:
-    A getData(const A& key);
-    void setData(const A& key, const V& value);
+    B getData(const std::string& key){
+        return dataPayload.at(key);
+    };
+    void setData(const std::string& key, const A& value){
+        dataPayload[key] = value;
+    };
 };
 
 #endif
