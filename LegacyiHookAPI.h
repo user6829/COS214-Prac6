@@ -6,9 +6,7 @@
 class LegacyiHookAPI
 {
 public:
-    int transmitRawData(std::string data);
+    void transmitRawData(std::string data);
 };
-
-
 
 #endif  
