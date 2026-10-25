@@ -17,9 +17,7 @@ public:
      * @brief Gets specific data
      * @param key The keyword used to get the data 
      */
-    std::string getData(const std::string& key){
-        return dataPayload.at(key);
-    };
+    std::string getData(const std::string& key);
 
     /**
      * @brief Put data into the payload
