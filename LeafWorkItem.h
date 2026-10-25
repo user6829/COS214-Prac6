@@ -3,6 +3,7 @@
 
 
 #include "WorkflowComponent.h"
+#include "WorkflowContext.h"
 
 class WorkitemState;
 class RoutingStrategy;
@@ -25,5 +26,6 @@ public:
     void setRoutingStrategy(RoutingStrategy* strategy) ;
     ApprovalHandler* getApprovalHandler() const ;
     void setApprovalHandler(ApprovalHandler* handler);
+
 };
 #endif // LEAFWORKITEM_H
