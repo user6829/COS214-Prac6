@@ -7,7 +7,7 @@
 class ExternalSystemConnector
 {
 public:
-    virtual bool sendPayload(const std::map<std::string,std::string>& payload) = 0;
+    virtual void sendPayload(const std::map<std::string,std::string>& payload) = 0;
 };
 
 #endif  
