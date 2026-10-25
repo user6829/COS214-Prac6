@@ -4,14 +4,14 @@
 #include "ExternalSystemConnector.h"
 #include "LegacyiHookAPI.h"
 
-template <typename A, typename B>
 class LegacyiHookAdapter : public ExternalSystemConnector
 {
 private:
-    LegacyiHookAdapter* legacySystem;
+    LegacyiHookAPI* legacySystem;
 public:
-    bool sendPayload(const std::map<A,B>& payload);
-    ~LegacyiHookAdapter();
+    LegacyiHookAdapter(LegacyiHookAPI*);
+    void sendPayload(const std::map<std::string,std::string>& payload);
+    ~LegacyiHookAdapter(){};
 };
 
 #endif  
