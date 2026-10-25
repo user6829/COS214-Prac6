@@ -8,17 +8,16 @@
  * @brief The data associated with the entire workflow
  */
 
-template <typename A>
 class WorkflowContext
 {
 private:
-    std::map<std::string,A> dataPayload;
+    std::map<std::string,std::string> dataPayload;
 public:
     /**
      * @brief Gets specific data
      * @param key The keyword used to get the data 
      */
-    B getData(const std::string& key){
+    std::string getData(const std::string& key){
         return dataPayload.at(key);
     };
 
@@ -27,7 +26,7 @@ public:
      * @param key keyword used to identify the data
      * @param value the value associated with that keywork can be any type 
      */
-    void setData(const std::string& key, const A& value){
+    void setData(const std::string& key, const std::string& value){
         dataPayload[key] = value;
     };
 };
