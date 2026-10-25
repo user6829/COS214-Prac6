@@ -1,6 +1,6 @@
 #include "LeafWorkItem.h"
 #include "WorkflowComponent.h"
-#include "WorkitemState.h"
+#include "WorkItemState.h"
 #include "RoutingStrategy.h"
 #include "WorkflowVisitor.h"
 #include "ApprovalHandler.h"
@@ -24,10 +24,10 @@ void LeafWorkItem::accept(WorkflowVisitor* visitor) override{
     }
 }
 
-WorkitemState* LeafWorkItem::getCurrentState() const {
+WorkItemState* LeafWorkItem::getCurrentState() const {
     return currentState;
 }
-void LeafWorkItem::setState(WorkitemState* state) {
+void LeafWorkItem::setState(WorkItemState* state) {
     currentState=state;
 }
 
