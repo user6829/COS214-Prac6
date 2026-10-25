@@ -1,11 +1,12 @@
-#ifndef FINANCE_DIRECTOR_APPROVAL_HANDLER_H
-#define FINANCE_DIRECTOR_APPROVAL_HANLDER_H
+#ifndef HANDLER_A_H
+#define HANLDER_A_H
 #include "AppovalHandler.h"
 #include <string>
 
-class FinanceDirectorApprovalHandler : public ApprovalHandler{
+template <typename T>
+class HandlerA : public ApprovalHandler{
     public:
-        bool processRequest(double amount, std::string decision);
+        T processRequest(T amount,T decision);
 };
 
 #endif

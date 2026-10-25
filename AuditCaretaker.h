@@ -9,6 +9,7 @@ private:
     std::list<WorkflowMemento*> history;
 
 public:
+    ~AuditCaretaker();
     void addSnapshot(WorkflowMemento* memento);
     WorkflowMemento* getSnapshot(int index);
 };

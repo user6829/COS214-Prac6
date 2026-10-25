@@ -2,14 +2,14 @@
 #define APPROVAL_HANDLER_H
 #include <string>
 
-
+template<typename T>
 class ApprovalHandler{
     private:
-        ApprovalHandler* nextHandler;
+        ApprovalHandler<T>* nextHandler;
 
     public:
-        ApprovalHandler* setNext(ApprovalHandler* handler);
-        virtual bool processRequest(double amount, std::string decision) = 0;
+        ApprovalHandler<T>* setNext(ApprovalHandler* handler);
+        virtual T processRequest(T amount,T decision) = 0;
     };
 
 #endif
