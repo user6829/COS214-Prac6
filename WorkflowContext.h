@@ -24,7 +24,7 @@ public:
      * @param key keyword used to identify the data
      * @param value the value associated with that keywork can be any type 
      */
-    void setData(const std::string& key, const std::string& value)
+    void setData(const std::string& key, const std::string& value);
 };
 
 #endif

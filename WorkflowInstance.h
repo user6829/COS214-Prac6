@@ -3,7 +3,6 @@
 
 #include "SubjectWorkFlowInstance.h"
 #include "WorkflowContext.h"
-#include "EventObserver.h"
 #include <vector>
 #include <algorithm>
 
@@ -11,7 +10,6 @@
  * @brief The instance of a running workflow
  */
 
-template <typename T>
 class WorkflowInstance : public SubjectWorkFlowInstance
 {
 private:
@@ -19,86 +17,66 @@ private:
     std::string state;
     std::string eventName;
     std::vector<EventObserver*> observers;
-    WorkflowContext<std::string, T>* currentContext;
+    WorkflowContext* currentContext;
 public:
+    /**
+    * @brief Assign the workflow context
+    * @param c the context to be assigned
+    */
+    WorkflowInstance(WorkflowContext* c);
     /**
     * @brief Add the observer to the list
     * @param obs The observer to be added
     */
-    void attach(EventObserver* obs){
-        observers.push_back(obs);
-    }
+    void attach(EventObserver* obs);
 
     /**
     * @brief Removes the observer from the list
     * @param obs The observer to be removed
     */
-    void detach(EventObserver* obs){
-        observers.erase(std::remove(observers.begin(), observers.end(), obs), observers.end());
-    }
+    void detach(EventObserver* obs);
 
     /**
     * @brief Notifies all the attached observers
     */
-    void notifyObservser(){
-        for (EventObserver* obs : observers) {
-            obs->update(*this);
-        }
-    }
+    void notifyObservser();
 
     /**
     * @brief Sets the new state then calls notify
     */
-    void setState(){
-        this->state = currentContext->getData(std::string("State"));
-        notifyObservser();
-    }
+    void setState();
 
     /**
     * @brief Sets the event name then calls notify
     */
-    void setEvent()
-    {
-        this->state = currentContext->getData(std::string("Event"));
-        notifyObservser();
-    }
+    void setEvent();
 
     /**
     * @brief Sets the ID of the event then calls notify
     */
-    void setID()
-    {
-        this->state = currentContext->getData(std::string("ID"));
-        notifyObservser();
-    }
+    void setID();
 
     /**
     * @brief Returns the state
     */
-    std::string getState(){
-        return state;
-    } 
+    std::string getState();
 
     /**
     * @brief Returns the event name
     */
-    std::string getEventName(){
-        return eventName;
-    }
+    std::string getEventName();
 
     /**
     * @brief Returns the ID of the event
     */
-    std::string getInstanceID() {
-        return instaceID;
-    }
+    std::string getInstanceID();
 
     /**
     * @brief Cleans up the workflowcontext
     */
-    WorkflowMemento createMemento(){
-        delete currentContext;
-    }
+    WorkflowMemento createMemento();
+
+
     void restoreMemento(WorkflowMemento m); 
     ~WorkflowInstance();
 };
