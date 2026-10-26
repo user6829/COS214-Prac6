@@ -16,7 +16,7 @@ public:
     void add(std::shared_ptr<WorkflowComponent> component);
     void remove(std::shared_ptr<WorkflowComponent> component);
     const std::vector<std::shared_ptr<WorkflowComponent>>& getChildren() const;
-    void execute(WorkflowContext* context) override;
+    void execute(WorkflowContext<WorkflowComponent>* context);
     void accept(WorkflowVisitor* visitor) override;
 };
 
