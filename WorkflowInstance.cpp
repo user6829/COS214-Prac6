@@ -28,13 +28,13 @@ void WorkflowInstance::setState(){
 
 void WorkflowInstance::setEvent()
 {
-    this->state = currentContext->getData(std::string("Event"));
+    this->eventName = currentContext->getData(std::string("Event"));
     notifyObservser();
 }
 
 void WorkflowInstance::setID()
 {
-    this->state = currentContext->getData(std::string("ID"));
+    this->instanceID = currentContext->getData(std::string("ID"));
     notifyObservser();
 }
 
@@ -47,9 +47,10 @@ std::string WorkflowInstance::getEventName(){
 }
 
 std::string WorkflowInstance::getInstanceID() {
-    return instaceID;
+    return instanceID;
 }
 
-WorkflowMemento WorkflowInstance::createMemento(){
+WorkflowInstance::~WorkflowInstance()
+{
     delete currentContext;
 }
