@@ -1,6 +1,4 @@
 #include "TividyEngineFacade.h"
-#include "WorkflowDefinitionRegistry.h"
-#include "InstanceManager.h"
 #include "AuditCaretaker.h"
 #include "WorkflowMemento.h"
 #include "WorkflowDefinition.h"
@@ -41,58 +39,69 @@ namespace
         }
         return nullptr;
     }
-
-    InstanceRecord& requireRecord(InstanceManager* manager, const std::string& instanceId)
-    {
-        InstanceRecord* record = manager->find(instanceId);
-        if (!record)
-        {
-            throw std::invalid_argument("Unknown workflow instance: " + instanceId);
-        }
-        return *record;
-    }
-
-    WorkflowComponent* requireStep(const InstanceRecord& record, const std::string& stepId)
-    {
-        WorkflowComponent* step = findComponent(record.definition->getRootElement(), stepId);
-        if (!step)
-        {
-            throw std::invalid_argument("Unknown step: " + stepId);
-        }
-        return step;
-    }
-
-    // The caretaker keeps the pointer; it must delete its mementos.
-    void takeSnapshot(AuditCaretaker* caretaker, WorkflowInstance* instance)
-    {
-        caretaker->addSnapshot(new WorkflowMemento(instance->createMemento()));
-    }
 }
 
 TividyEngineFacade::TividyEngineFacade()
-    : definitionRegistry(new WorkflowDefinitionRegistry()),
-      instanceManager(new InstanceManager()),
-      auditCaretaker(new AuditCaretaker())
+    : auditCaretaker(new AuditCaretaker()), nextInstanceNumber(1)
 {
 }
 
 TividyEngineFacade::~TividyEngineFacade()
 {
-    delete instanceManager;
-    delete definitionRegistry;
+    for (std::map<std::string, InstanceRecord>::iterator it = instances.begin();
+         it != instances.end(); ++it)
+    {
+        delete it->second.instance;
+        delete it->second.context;
+    }
+    for (std::map<std::string, WorkflowDefinition*>::iterator it = definitionRegistry.begin();
+         it != definitionRegistry.end(); ++it)
+    {
+        delete it->second;
+    }
     delete auditCaretaker;
+}
+
+TividyEngineFacade::InstanceRecord& TividyEngineFacade::requireInstance(const std::string& instanceId)
+{
+    std::map<std::string, InstanceRecord>::iterator it = instances.find(instanceId);
+    if (it == instances.end())
+    {
+        throw std::invalid_argument("Unknown workflow instance: " + instanceId);
+    }
+    return it->second;
+}
+
+// The caretaker keeps the pointer; it must delete its mementos.
+void TividyEngineFacade::snapshot(WorkflowInstance* instance)
+{
+    auditCaretaker->addSnapshot(new WorkflowMemento(instance->createMemento()));
 }
 
 void TividyEngineFacade::registerDefinition(const std::string& defId, WorkflowDefinition* definition)
 {
-    definitionRegistry->registerDefinition(defId, definition);
+    if (!definition)
+    {
+        return;
+    }
+    std::map<std::string, WorkflowDefinition*>::iterator it = definitionRegistry.find(defId);
+    if (it != definitionRegistry.end())
+    {
+        if (it->second != definition)
+        {
+            delete it->second;
+        }
+        it->second = definition;
+        return;
+    }
+    definitionRegistry[defId] = definition;
 }
 
 WorkflowInstance* TividyEngineFacade::startWorkflow(const std::string& defId,
                                                     const std::map<std::string, std::string>& initialData)
 {
-    WorkflowDefinition* definition = definitionRegistry->get(defId);
-    if (!definition)
+    std::map<std::string, WorkflowDefinition*>::iterator def = definitionRegistry.find(defId);
+    if (def == definitionRegistry.end())
     {
         throw std::invalid_argument("Unknown workflow definition: " + defId);
     }
@@ -104,30 +113,44 @@ WorkflowInstance* TividyEngineFacade::startWorkflow(const std::string& defId,
         context->setData(it->first, it->second);
     }
 
-    WorkflowInstance* instance = new WorkflowInstance(context);
-    std::string id = instanceManager->add(instance, context, definition);
-
+    std::string id = "INST-" + std::to_string(nextInstanceNumber++);
     context->setData("ID", id);
+
+    WorkflowInstance* instance = new WorkflowInstance(context);
     instance->setID();
 
-    takeSnapshot(auditCaretaker, instance); // snapshot 0 = state at start
+    InstanceRecord record;
+    record.instance = instance;
+    record.context = context;
+    record.definition = def->second;
+    instances[id] = record;
+
+    snapshot(instance); // snapshot 0 = state at start
     return instance;
 }
 
 void TividyEngineFacade::executeStep(const std::string& instanceId, const std::string& stepId)
 {
-    InstanceRecord& record = requireRecord(instanceManager, instanceId);
-    WorkflowComponent* step = requireStep(record, stepId);
+    InstanceRecord& record = requireInstance(instanceId);
+    WorkflowComponent* step = findComponent(record.definition->getRootElement(), stepId);
+    if (!step)
+    {
+        throw std::invalid_argument("Unknown step: " + stepId);
+    }
 
-    takeSnapshot(auditCaretaker, record.instance); // so this step can be rolled back
+    snapshot(record.instance); // so this step can be rolled back
     step->execute(record.context);
 }
 
 void TividyEngineFacade::processApproval(const std::string& instanceId, const std::string& stepId,
                                          const std::string& decision)
 {
-    InstanceRecord& record = requireRecord(instanceManager, instanceId);
-    WorkflowComponent* step = requireStep(record, stepId);
+    InstanceRecord& record = requireInstance(instanceId);
+    WorkflowComponent* step = findComponent(record.definition->getRootElement(), stepId);
+    if (!step)
+    {
+        throw std::invalid_argument("Unknown step: " + stepId);
+    }
 
     LeafWorkItem* item = dynamic_cast<LeafWorkItem*>(step);
     if (!item)
@@ -151,21 +174,21 @@ void TividyEngineFacade::processApproval(const std::string& instanceId, const st
         amount = 0.0;
     }
 
-    takeSnapshot(auditCaretaker, record.instance);
+    snapshot(record.instance);
     record.context->setData("approval:" + stepId, decision);
     handler->processRequest(amount, decision);
 }
 
 void TividyEngineFacade::rollbackInstance(const std::string& instanceId, int snapshotIndex)
 {
-    InstanceRecord& record = requireRecord(instanceManager, instanceId);
+    InstanceRecord& record = requireInstance(instanceId);
 
-    WorkflowMemento* snapshot = auditCaretaker->getSnapshot(snapshotIndex);
-    if (!snapshot)
+    WorkflowMemento* saved = auditCaretaker->getSnapshot(snapshotIndex);
+    if (!saved)
     {
         throw std::out_of_range("No snapshot at index " + std::to_string(snapshotIndex));
     }
-    record.instance->restoreMemento(*snapshot);
+    record.instance->restoreMemento(*saved);
 }
 
 void TividyEngineFacade::exportMetrics(WorkflowVisitor* visitor)
@@ -174,9 +197,8 @@ void TividyEngineFacade::exportMetrics(WorkflowVisitor* visitor)
     {
         return;
     }
-    const std::map<std::string, WorkflowDefinition*>& all = definitionRegistry->getAll();
-    for (std::map<std::string, WorkflowDefinition*>::const_iterator it = all.begin();
-         it != all.end(); ++it)
+    for (std::map<std::string, WorkflowDefinition*>::iterator it = definitionRegistry.begin();
+         it != definitionRegistry.end(); ++it)
     {
         WorkflowComponent* root = it->second ? it->second->getRootElement() : nullptr;
         if (root)
