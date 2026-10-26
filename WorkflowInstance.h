@@ -13,7 +13,7 @@
 class WorkflowInstance : public SubjectWorkFlowInstance
 {
 private:
-    std::string instaceID;
+    std::string instanceID;
     std::string state;
     std::string eventName;
     std::vector<EventObserver*> observers;
@@ -74,11 +74,11 @@ public:
     /**
     * @brief Cleans up the workflowcontext
     */
-    WorkflowMemento createMemento();
-
-
-    void restoreMemento(WorkflowMemento m); 
     ~WorkflowInstance();
+
+    WorkflowMemento createMemento();
+    void restoreMemento(WorkflowMemento m); 
+    
 };
 
 #endif
