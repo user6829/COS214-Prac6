@@ -3,6 +3,11 @@
 
 #include "EventObserver.h"
 
+    /**
+    * @brief AuditLogger for an instance
+    */
+
+
 class AuditLoggerObserver : public EventObserver
 {
 public:
