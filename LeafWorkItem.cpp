@@ -8,13 +8,13 @@
 LeafWorkItem::LeafWorkItem(const std::string& id, const std::string& name ): WorkflowComponent(id,name){}
 void LeafWorkItem::execute(WorkflowContext* context) override{
     if(routingStrategy){
-        routingStartegy->route(context);
+        routingStrategy->determineAssignee(this);
     }
     if(approvalHandler){
-        approvalHandler->handleApproval(context);
+        approvalHandler->processRequest(context);
     }
     if(currentState){
-        currentState->handle(context);
+        currentState->handle(this);
     }
 }
 
@@ -32,7 +32,7 @@ void LeafWorkItem::setState(WorkItemState* state) {
 }
 
 RoutingStrategy* LeafWorkItem::getRoutingStrategy() const {
-    return routeStrategy
+    return routeStrategy;
 }
 void LeafWorkItem::setRoutingStrategy(RoutingStrategy* strategy) {
     routingStartegy=strategy;
