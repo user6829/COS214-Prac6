@@ -23,14 +23,18 @@ double parseNumber(const std::string& text, const std::string& key) {
 }
 } // namespace
 
-ValueThresholdRouting::ValueThresholdRouting(const std::string& valueKey, double threshold,
-                                             const std::string& lowValueRole,
-                                             const std::string& highValueRole)
-    : valueKey_(valueKey), threshold_(threshold),
-      lowValueRole_(lowValueRole), highValueRole_(highValueRole) {
-    if (valueKey_.empty() || lowValueRole_.empty() || highValueRole_.empty()) {
+ValueThresholdRouting::ValueThresholdRouting(const std::string& key, double limit,
+                                             const std::string& lowRole,
+                                             const std::string& highRole)
+    : valueKey(key), threshold(limit),
+      lowValueRole(lowRole), highValueRole(highRole) {
+    if (valueKey.empty() || lowValueRole.empty() || highValueRole.empty()) {
         throw std::invalid_argument("ValueThresholdRouting: key and roles must not be empty");
     }
+}
+
+ValueThresholdRouting::~ValueThresholdRouting() {
+    // Nothing to release: the members are a double and std::strings.
 }
 
 std::string ValueThresholdRouting::determineAssignee(const LeafWorkItem& item) const {
@@ -38,13 +42,13 @@ std::string ValueThresholdRouting::determineAssignee(const LeafWorkItem& item) c
     if (context == nullptr) {
         throw std::runtime_error("ValueThresholdRouting: work item has no workflow data attached");
     }
-    double value = parseNumber(context->getData(valueKey_), valueKey_);
-    return (value >= threshold_) ? highValueRole_ : lowValueRole_;
+    double value = parseNumber(context->getData(valueKey), valueKey);
+    return (value >= threshold) ? highValueRole : lowValueRole;
 }
 
 std::string ValueThresholdRouting::describe() const {
     std::ostringstream out;
-    out << valueKey_ << " >= " << threshold_ << " -> " << highValueRole_
-        << ", otherwise " << lowValueRole_;
+    out << valueKey << " >= " << threshold << " -> " << highValueRole
+        << ", otherwise " << lowValueRole;
     return out.str();
 }

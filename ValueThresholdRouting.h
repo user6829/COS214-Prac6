@@ -15,21 +15,23 @@
  * "score"), so the class itself holds no knowledge of any industry.
  */
 class ValueThresholdRouting : public RoutingStrategy {
+private:
+    std::string valueKey;
+    double threshold;
+    std::string lowValueRole;
+    std::string highValueRole;
+
 public:
     /// @throws std::invalid_argument if the key or either role is empty.
-    ValueThresholdRouting(const std::string& valueKey, double threshold,
-                          const std::string& lowValueRole,
-                          const std::string& highValueRole);
+    ValueThresholdRouting(const std::string& key, double limit,
+                          const std::string& lowRole,
+                          const std::string& highRole);
+    ~ValueThresholdRouting() override;
 
-    /// @throws std::runtime_error if the key is missing or not a number.
+    /// @throws std::runtime_error if the item has no data attached, or the key
+    ///         is missing or not a number.
     std::string determineAssignee(const LeafWorkItem& item) const override;
     std::string describe() const override;
-
-private:
-    std::string valueKey_;
-    double threshold_;
-    std::string lowValueRole_;
-    std::string highValueRole_;
 };
 
 #endif // VALUETHRESHOLDROUTING_H
