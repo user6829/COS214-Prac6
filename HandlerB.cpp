@@ -17,3 +17,5 @@ T HandlerB<T>::processRequest(T amount, T decision) {
 }
 
 template class HandlerB<std::string>;
+template class HandlerB<int>;
+template class HandlerB<double>;

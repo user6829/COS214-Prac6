@@ -1,6 +1,13 @@
 #ifndef WORKFLOWINSTANCE_H
 #define WORKFLOWINSTANCE_H
 
+class SubjectWorkFlowInstance;
+
+template <typename K, typename V>
+class WorkflowContext;
+
+class EventObserver;
+
 #include "SubjectWorkFlowInstance.h"
 #include "WorkflowContext.h"
 #include "EventObserver.h"
