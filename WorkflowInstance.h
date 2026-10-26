@@ -19,8 +19,8 @@ class EventObserver;
 
 /**
  * @brief The instance of a running workflow
+ * @tparam T Data type processed within the workflow context.
  */
-
 template <typename T>
 class WorkflowInstance : public SubjectWorkFlowInstance
 {
@@ -93,13 +93,13 @@ public:
     /**
     * @brief Returns the event name
     */
-<<<<<<< HEAD
     std::string getEventName(){
         return eventName;
     }
-    std::string getEventName();
->>>>>>> 654d34be75b3018f7ff3286b666ebb16f71b240f
 
+    /**
+    * @brief Returns the instance ID
+    */
     std::string getInstanceID() {
         return instaceID;
     }

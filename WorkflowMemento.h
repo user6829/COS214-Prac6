@@ -10,8 +10,8 @@
  */
 class WorkflowMemento {
 private:
-    std::map<std::string, std::string>* instanceState; /**< Map storing state key-value pairs. */
-    std::string timestamp;                            /**< Timestamp when the snapshot was captured. */
+    std::map<std::string, std::string>* instanceState; 
+    std::string timestamp;                           
 
 public:
     /**
