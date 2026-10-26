@@ -10,15 +10,16 @@
  * Always assigns to one fixed role, whatever the workflow data says.
  */
 class RoleBasedRouting : public RoutingStrategy {
+private:
+    std::string targetRole;
+
 public:
-    /// @throws std::invalid_argument if @p targetRole_ is empty.
-    explicit RoleBasedRouting(const std::string& targetRole_);
+    /// @throws std::invalid_argument if @p role is empty.
+    explicit RoleBasedRouting(const std::string& role);
+    ~RoleBasedRouting() override;
 
     std::string determineAssignee(const LeafWorkItem& item) const override;
     std::string describe() const override;
-
-private:
-    std::string targetRole;
 };
 
 #endif // ROLEBASEDROUTING_H
