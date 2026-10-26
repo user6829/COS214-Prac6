@@ -25,6 +25,11 @@ public:
      * @param value the value associated with that keywork can be any type 
      */
     void setData(const std::string& key, const std::string& value);
+
+    /**
+     * @brief Read-only view of all the data, used by adapters (no copy is made)
+     */
+    const std::map<std::string,std::string>& getAll() const;
 };
 
 #endif
