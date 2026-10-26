@@ -32,7 +32,7 @@ class LeafWorkItem;
  */
 class RoutingStrategy {
 public:
-    virtual ~RoutingStrategy() {};
+    virtual ~RoutingStrategy();
 
     /**
      * @brief Chooses the assignee for @p item using the instance's data.
