@@ -93,13 +93,13 @@ public:
     /**
     * @brief Returns the event name
     */
+<<<<<<< HEAD
     std::string getEventName(){
         return eventName;
     }
+    std::string getEventName();
+>>>>>>> 654d34be75b3018f7ff3286b666ebb16f71b240f
 
-    /**
-    * @brief Returns the ID of the event
-    */
     std::string getInstanceID() {
         return instaceID;
     }
