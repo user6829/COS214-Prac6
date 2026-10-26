@@ -4,6 +4,10 @@
 #include "EventObserver.h"
 #include <iostream>
 
+    /**
+    * @brief Notification system for the instance
+    */
+
 class NotificationObserver : public EventObserver
 {
 public:
