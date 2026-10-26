@@ -3,6 +3,10 @@
 
 #include "EventObserver.h"
 
+    /**
+    * @brief Observes the state of an instance
+    */
+
 class StateObserver : public EventObserver
 {
 public:
