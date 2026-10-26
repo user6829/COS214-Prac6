@@ -4,6 +4,11 @@
 #include <map>
 #include <string>
 
+    /**
+    * @brief The target interface to be used to transmit the data
+    */
+
+
 class ExternalSystemConnector
 {
 public:
