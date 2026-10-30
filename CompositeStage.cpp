@@ -2,6 +2,7 @@
 #include "WorkflowComponent.h"
 #include "WorkflowVisitor.h"
 #include "WorkflowContext.h"
+#include <algorithm>
 
 CompositeStage::CompositeStage(const std::string &id, const std::string &name) : WorkflowComponent(id, name) {}
 
@@ -27,7 +28,7 @@ const std::vector<std::shared_ptr<WorkflowComponent>> &CompositeStage::getChildr
     return children;
 }
 
-void CompositeStage::execute(WorkflowContext<WorkflowComponent> *context)
+void CompositeStage::execute(WorkflowContext *context)
 {
     for (auto &child : children)
     {

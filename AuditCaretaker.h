@@ -15,6 +15,7 @@ private:
     std::list<WorkflowMemento*> history;
 
 public:
+    int size() const;
     /**
      * @brief Destructor for cleaning up stored mementos.
      */

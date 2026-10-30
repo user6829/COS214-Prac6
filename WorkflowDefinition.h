@@ -2,10 +2,6 @@
 #define WORKFLOWDEFINITION_H
 
 #include "WorkflowComponent.h"
-#include "CompositeStage.h"
-#include "LeafWorkItem.h"
-
-class WorkComponent; // Forward declaration
 
 class WorkflowDefinition {
     private:
@@ -14,8 +10,14 @@ class WorkflowDefinition {
         WorkflowComponent* rootElement;
     public:
         WorkflowDefinition(const std::string& definitionId, const std::string& version );
-        WorkflowComponent* getRootElement();
-};
+        ~WorkflowDefinition() ;
+        std::string getDefinitionId() const;
+        std::string getVersion() const;
+        void setRootElement(WorkflowComponent* root);
+        WorkflowComponent* getRootElement() const;
+        WorkflowDefinition(const WorkflowDefinition&) = delete;
+        WorkflowDefinition& operator=(const WorkflowDefinition&) = delete;
+};      
 
 #endif // WORKFLOWDEFINITION_H
 

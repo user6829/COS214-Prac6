@@ -28,3 +28,7 @@ WorkflowMemento* AuditCaretaker::getSnapshot(int index) {
 
     return nullptr;
 }
+
+int AuditCaretaker::size() const {
+    return static_cast<int>(history.size());
+}

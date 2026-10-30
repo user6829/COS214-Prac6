@@ -1,6 +1,6 @@
 #ifndef HANDLER_A_H
-#define HANLDER_A_H
-#include "AppovalHandler.h"
+#define HANDLER_A_H
+#include "ApprovalHandler.h"
 #include <string>
 
 /**
@@ -16,7 +16,7 @@ class HandlerA : public ApprovalHandler<T>{
          * @param decision The decision state or context.
          * @return The resulting decision or processed amount.
          */
-        T processRequest(T amount,T decision);
+        T processRequest(T amount, const std::string& decision)override;
 };
 
 #endif

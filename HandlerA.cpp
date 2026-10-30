@@ -2,12 +2,15 @@
 #include <iostream>
 
 template <typename T>
-T HandlerA<T>::processRequest(T amount, T decision) {
+T HandlerA<T>::processRequest(T amount, const std::string&   decision) {
     if (decision == "REJECT") {
         return decision;
     }
 
-    if (amount > "1000") {
+    double Namount = 0.0;
+    try { Namount = std::stod(amount); } catch (...) { Namount = 0.0; }
+
+    if (Namount > 1000.0) {
         if (this->getNext() != nullptr) {
             return this->getNext()->processRequest(amount, decision);
         }
@@ -17,5 +20,3 @@ T HandlerA<T>::processRequest(T amount, T decision) {
 }
 
 template class HandlerA<std::string>;
-template class HandlerA<int>;
-template class HandlerA<double>;

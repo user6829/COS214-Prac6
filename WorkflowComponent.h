@@ -8,7 +8,6 @@
 
 #include <string>
 
-template <typename T>
 class WorkflowContext;
 class WorkflowVisitor;
 
@@ -25,7 +24,7 @@ public:
     void setId(const std::string &id);
     std::string getName() const;
     void setName(const std::string &name);
-    virtual void execute(WorkflowContext<WorkflowComponent> *context) = 0;
+    virtual void execute(WorkflowContext *context) = 0;
     virtual void accept(WorkflowVisitor *visitor) = 0;
 };
 

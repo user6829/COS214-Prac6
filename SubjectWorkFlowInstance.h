@@ -5,7 +5,7 @@
 #include "WorkflowMemento.h"
 
 class EventObserver;
-
+class WorkflowMemento;
 class SubjectWorkFlowInstance
 {
 public:
@@ -18,8 +18,8 @@ public:
     virtual std::string getState() = 0;
     virtual std::string getEventName() = 0;
     virtual std::string getInstanceID() = 0;
-    virtual WorkflowMemento createMemento() = 0;
-    virtual void restoreMemento(WorkflowMemento m) = 0; 
+    virtual WorkflowMemento* createMemento() = 0;
+    virtual void restoreMemento(WorkflowMemento* m) = 0; 
     virtual ~SubjectWorkFlowInstance(){};
 };
 
