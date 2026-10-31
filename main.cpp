@@ -997,3 +997,344 @@ static void menuEditUniversity(const std::string &key)
         return data;
     }
 
+    static void displayProcurementResult(const ProcurementRequest& request)
+        {
+            std::cout << "\nStep 4 of 5 - Request result\n"
+                    << (request.result == "APPROVED" ? GREEN : RED)
+                    << "========================================\n"
+                    << "Result: " << request.result << "\n"
+                    << "Requester: " << request.data.firstName << " "
+                    << request.data.surname << "\n"
+                    << "Request reference: " << request.reference << "\n"
+                    << "Instance ID: " << request.instanceId << "\n"
+                    << "Project: " << request.data.project << "\n"
+                    << "Material: " << request.data.material << "\n"
+                    << "Quantity: " << request.data.quantity << "\n"
+                    << "Estimated cost: R" << request.data.amount << "\n";
+            if (request.result != "APPROVED")
+                for (size_t i = 0; i < request.reasons.size(); ++i)
+                    std::cout << "Reason: " << request.reasons[i] << "\n";
+            std::cout << "========================================\n" << RESET;
+            std::cout << "\nStep 5 of 5 - Request complete\n"
+                    << "Your request is complete. Thank you.\n";
+        }
+
+    static void menuStartProcurement()
+    {
+        heading("Start a material request");
+        ProcurementRequest request;
+        request.reference = generateRequestReference();
+        std::cout << "\nStep 1 of 5 - Material request started\n";
+        std::map<std::string, std::string> initial;
+        initial["definitionId"] = "construction-procurement";
+        initial["requestReference"] = request.reference;
+        initial["ID"] = "";
+        WorkflowInstance *instance = engine->startWorkflow("construction-procurement", initial);
+        request.instanceId = instance->getInstanceID();
+        attachUniversityObservers(instance);
+        engine->recordEvent(instance->getInstanceID(), "Request received");
+        gProcurementRequests[request.instanceId] = request;
+        std::cout << "Generated request reference: " << request.reference << "\n"
+                  << "Workflow instance ID: " << request.instanceId << "\n"
+                  << "Your request has been registered.\n";
+
+        std::cout << "\nStep 2 of 5 - Requester information\n";
+        request.data = collectProcurementInformation();
+        setProcurementContext(instance, request);
+        instance->getContext()->setData(
+            "remainingBudget",
+            std::to_string(ledger->remainingFor(request.data.material)));
+        gProcurementRequests[request.instanceId] = request;
+
+        std::cout << "\nStep 3 of 5 - Processing request\n"
+                  << "The workflow engine is processing the request in order.\n"
+                  << "------------------------------------------------------------\n";
+        processAvailableWork(instance);
+        std::cout << "\n  3.5 Delivery and Inspection\n"
+                  << "    Work item: Inspect delivered materials (proc-inspect)\n"
+                  << "    State: Inactive - awaiting delivery (outside this request's approval process)\n";
+        WorkflowContext* context = instance->getContext();
+        const int count = std::stoi(context->getData("rule:proc-approve:count"));
+        int passed = 0;
+        for (int i = 1; i <= count; ++i) {
+            const std::string prefix = "rule:proc-approve:" + std::to_string(i) + ":";
+            ProcurementCheck check = {context->getData(prefix + "name"),
+                context->getData(prefix + "compared"),
+                context->getData(prefix + "passed") == "true", context->getData(prefix + "reason")};
+            printProcurementCheck(i, check);
+            if (!check.passed) request.reasons.push_back(check.reason);
+            else ++passed;
+        }
+        request.result = engine->getOutcome(request.instanceId);
+        const bool approved = request.result == "APPROVED";
+        engine->recordEvent(request.instanceId, approved ? "Request approved" : "Request rejected");
+        std::cout << "------------------------------------------------------------\n"
+                  << " Summary: " << passed << " of " << count << " checks passed.\n";
+        gProcurementRequests[request.instanceId] = request;
+
+        displayProcurementResult(request);
+        sendAdapterAndVisitorSummary(request.reference, instance, request.result);
+    }
+
+
+    static std::string askUniversityInstanceId()
+    {
+        if (gUniversityApplications.empty())
+        {
+            std::cout << "No applications started this session.\n";
+            return "";
+        }
+        std::cout << "Applications started this session:\n";
+        for (std::map<std::string, UniversityApplication>::const_iterator it = gUniversityApplications.begin();
+            it != gUniversityApplications.end(); ++it)
+            std::cout << "  " << it->second.studentNumber << " (" << it->first << ") - "
+                    << it->second.firstName << " " << it->second.surname
+                    << " - " << it->second.programme
+                    << " - " << (it->second.result.empty() ? "IN PROGRESS" : it->second.result)
+                    << "\n";
+        return askRequired("Instance ID or student number: ");
+    }
+
+    static UniversityApplication *findUniversityApplication(const std::string &key)
+    {
+        std::map<std::string, UniversityApplication>::iterator direct = gUniversityApplications.find(key);
+        if (direct != gUniversityApplications.end())
+            return &direct->second;
+        for (std::map<std::string, UniversityApplication>::iterator it = gUniversityApplications.begin();
+            it != gUniversityApplications.end(); ++it)
+            if (it->second.studentNumber == key)
+                return &it->second;
+        return nullptr;
+    }
+
+    static void menuInspectUniversity()
+    {
+        heading("View application status");
+        const std::string key = askUniversityInstanceId();
+        if (key.empty())
+            return;
+        UniversityApplication *application = findUniversityApplication(key);
+        if (!application)
+        {
+            std::cout << RED << "Unknown application: " << key << "\n" << RESET;
+            return;
+        }
+        WorkflowInstance *instance = engine->getInstance(application->instanceId);
+        std::cout << "Applicant: " << application->firstName << " " << application->surname << "\n"
+                << "Programme: " << application->programme << "\n"
+                << "Student number: " << application->studentNumber << "\n"
+                << "Instance ID: " << application->instanceId << "\n"
+                << "Attempt: " << application->attempt << "\n"
+                << "State: " << (instance ? instance->getState() : "Unknown") << "\n"
+                << "Result: " << (application->result.empty() ? "IN PROGRESS" : application->result) << "\n";
+        for (size_t i = 0; i < application->reasons.size(); ++i)
+            std::cout << "Reason: " << application->reasons[i] << "\n";
+    }
+
+    static void menuUniversityHistory()
+    {
+        heading("Application history");
+        const std::string key = askUniversityInstanceId();
+        if (key.empty())
+            return;
+        UniversityApplication *application = findUniversityApplication(key);
+        if (!application)
+        {
+            std::cout << RED << "Unknown application: " << key << "\n" << RESET;
+            return;
+        }
+        const std::vector<AuditLoggerObserver::Entry> *history =
+            gUniversityHistory.getHistory(application->instanceId);
+        std::cout << "APPLICATION HISTORY - " << application->studentNumber
+                << " (" << application->instanceId << ")\n"
+                << "Programme: " << application->programme << "\n"
+                << "--------------------------------------------------------\n"
+                << " #  Time      State              Note\n";
+        if (history)
+        {
+            for (size_t i = 0; i < history->size(); ++i)
+                std::cout << " " << (i + 1) << "  " << (*history)[i].time
+                        << "  " << (*history)[i].state << "  "
+                        << (*history)[i].note << "\n";
+        }
+        else
+            std::cout << "No history recorded.\n";
+        std::cout << "Engine snapshots: " << engine->getAuditCaretaker()->size(application->instanceId) << "\n";
+        std::cout << "--------------------------------------------------------\n";
+    }
+
+// =============================================================================
+// Menu 6 — Both industries: document factories
+// =============================================================================
+    static void menuDocuments()
+    {
+        heading("Generate university documents");
+        const std::string key = askUniversityInstanceId();
+        if (key.empty())
+            return;
+        UniversityApplication *application = findUniversityApplication(key);
+        if (!application)
+        {
+            std::cout << RED << "Unknown application: " << key << "\n" << RESET;
+            return;
+        }
+        if (!engine->canGenerateDocuments(application->instanceId) ||
+            (application->result != "ACCEPTED" && application->result != "REJECTED"))
+        {
+            std::cout << RED << "Documents are available only after the application is finished.\n" << RESET;
+            return;
+        }
+
+        const std::string documentPrefix = "documents/" + application->studentNumber + "_";
+        std::remove((documentPrefix + "acceptance_letter.txt").c_str());
+        std::remove((documentPrefix + "contract.txt").c_str());
+        std::remove((documentPrefix + "rejection_letter.txt").c_str());
+
+        std::vector<std::pair<std::string, std::string> > requested;
+        if (application->result == "ACCEPTED")
+        {
+            requested.push_back(std::make_pair("acceptance letter", "acceptance_letter"));
+            requested.push_back(std::make_pair("university contract", "contract"));
+        }
+        else
+            requested.push_back(std::make_pair("rejection letter", "rejection_letter"));
+
+        for (size_t i = 0; i < requested.size(); ++i)
+        {
+            Document *document = buildUniversityDocument(
+                *application, requested[i].second == "contract" ? "contract" : "letter");
+            std::cout << "\n--- " << requested[i].first << " ---\n";
+            document->print();
+            saveUniversityDocument(*application, document, requested[i].second);
+            delete document;
+        }
+    }
+
+    // =============================================================================
+    // Menu
+    // =============================================================================
+    void printScenarioMenu(const std::string &scenario)
+    {
+        TerminalUI::title(scenario == "university" ? "University Application" : "Construction Procurement");
+        rule();
+        if (scenario == "university") {
+        std::cout << BLUE << "  UNIVERSITY APPLICATIONS\n" << RESET
+                << "  1. Start a university application\n"
+                << "  2. View application status\n"
+                << "  3. Edit and resubmit an application\n"
+                << "  4. View application history\n"
+                << "  5. Generate university documents\n"
+                << "  6. Choose a different workflow scenario\n"
+                << "  7. Exit\n";
+        } else {
+        std::cout << BLUE << "  CONSTRUCTION MATERIAL PROCUREMENT\n" << RESET
+                << "  1. Start a material request\n"
+                << "  2. View request status\n"
+                << "  3. View request history\n"
+                << "  4. Generate procurement documents\n";
+        }
+        if (scenario != "university")
+            std::cout << "  9. Choose a different workflow scenario\n"
+                    << "  0. Exit\n";
+        rule();
+    }
+
+    namespace {
+    std::string stageFor(WorkflowComponent* node, const std::string& id)
+    {
+        CompositeStage* stage = dynamic_cast<CompositeStage*>(node);
+        if (!stage) return "";
+        for (const auto& child : stage->getChildren()) {
+            if (child->getId() == id) return stage->getName();
+            const std::string nested = stageFor(child.get(), id);
+            if (!nested.empty()) return nested;
+        }
+        return "";
+    }
+    }
+
+    void presentStep(WorkflowInstance* instance, LeafWorkItem& item, bool before,
+                    const std::string& previousState)
+    {
+        WorkflowContext* context = instance->getContext();
+        const bool university = context->getData("definitionId") == "undergraduate-admissions";
+        const std::string stage = stageFor(engine->getDefinition(context->getData("definitionId"))->getRootElement(), item.getId());
+        if (before) {
+            if (university && item.getId() == "undergrad-issue-offer")
+                displayUniversityChecks(gUniversityApplications.at(instance->getInstanceID()), instance);
+            std::string number = item.getId();
+            if (!university) {
+                const std::string ids[] = {"proc-submit", "proc-spec", "proc-quote", "proc-approve"};
+                for (int i = 0; i < 4; ++i) if (item.getId() == ids[i]) number = std::to_string(i + 1);
+            }
+            std::string routing = item.getRoutingStrategy()->describe();
+            if (item.getId() == "undergrad-submit") routing = "Applicant role; the application is being submitted.";
+            else if (item.getId() == "undergrad-payfee") routing = "Fee collector role; the intake fee must be recorded.";
+            else if (item.getId() == "undergrad-english") routing = "Language reviewer role; the English achievement level is checked.";
+            else if (item.getId() == "undergrad-issue-offer") routing = "Faculty board role; the completed checks are ready for a decision.";
+            else if (item.getId() == "proc-submit") routing = "Site manager role; the requester submits the request.";
+            else if (item.getId() == "proc-spec") routing = "Quantity surveyor role; the specification is verified.";
+            else if (item.getId() == "proc-approve") routing = "Finance approver role; the purchase order is reviewed.";
+            else if (item.getId() == "undergrad-aps") {
+                const int aps = std::stoi(context->getData("aps"));
+                routing = "APS " + std::to_string(aps) + " is " + (aps >= 35 ? "at or above" : "below") +
+                    " the threshold 35, routed to " + item.getRoutingStrategy()->determineAssignee(item, *context) + ".";
+            } else if (item.getId() == "proc-quote") {
+                const double amount = std::stod(context->getData("amount"));
+                std::ostringstream reason;
+                reason << "Estimated cost R" << amount << " is " << (amount >= 100000 ? "at or above" : "below")
+                    << " R100000, routed to " << item.getRoutingStrategy()->determineAssignee(item, *context) << ".";
+                routing = reason.str();
+            }
+            std::cout << "\n  3." << number << " " << stage << "\n"
+                    << "    Work item: " << item.getName() << " (" << item.getId() << ")\n"
+                    << "    Routing: " << routing << "\n";
+            if (!university) std::cout << "    State before: " << previousState << "\n";
+        } else {
+            const std::string role = context->getData("assignee:" + item.getId());
+            const std::string status = context->getData("workitem:" + item.getId() + ":status");
+            std::cout << "    Routed role: " << role << "\n"
+                    << "    Action: " << (status == "APPROVED" ? "Executed and approved" :
+                        status == "REJECTED" ? "Rejected after validation" : "Executed") << " by " << role << "\n";
+            if (university) {
+                std::cout << "    State transition: " << previousState << " -> " << instance->getState() << "\n";
+                gUniversityHistory.record(instance->getInstanceID(), instance->getState(),
+                    "Processed " + item.getId() + " (attempt " + context->getData("attempt") + ")");
+            } else std::cout << "    State after: " << instance->getState() << "\n";
+        }
+    }
+
+    void processAvailableWork(WorkflowInstance* instance)
+    {
+        std::string previousState;
+        engine->runToCompletion(instance->getInstanceID(), [&](LeafWorkItem& item, bool before) {
+            if (before) previousState = instance->getState();
+            presentStep(instance, item, before, previousState);
+        });
+    }
+
+    void handleAction(const std::string& scenario, int action)
+    {
+        if (scenario == "university") {
+            switch (action) {
+            case 1: menuStartUniversity(); break;
+            case 2: menuInspectUniversity(); break;
+            case 3: {
+                const std::string key = askUniversityInstanceId();
+                if (!key.empty()) menuEditUniversity(key);
+                break;
+            }
+            case 4: menuUniversityHistory(); break;
+            case 5: menuDocuments(); break;
+            default: std::cout << "Choose one of the listed actions.\n"; break;
+            }
+        } else {
+            switch (action) {
+            case 1: menuStartProcurement(); break;
+            case 2: menuProcurementStatus(); break;
+            case 3: menuProcurementHistory(); break;
+            case 4: menuProcurementDocuments(); break;
+            default: std::cout << "Choose one of the listed actions.\n"; break;
+            }
+        }
+    }
