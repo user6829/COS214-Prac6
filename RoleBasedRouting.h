@@ -4,6 +4,10 @@
 #include "RoutingStrategy.h"
 
 class LeafWorkItem;
+/**
+ * @class RoleBasedRouting
+ * @brief Strategy that assigns a work item to a configured role.
+ */
 
 class RoleBasedRouting : public RoutingStrategy  {
 private:
