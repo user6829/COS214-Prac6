@@ -6,13 +6,21 @@
 #include <sstream>
 
 MetricsReportVisitor::MetricsReportVisitor()
-    : totalExecutionTime(0.0), activeItemsCount(0) {}
+    : totalExecutionTime(0.0), activeItemsCount(0), runningInstancesCount(0) {}
+
+void MetricsReportVisitor::reset()
+{
+    totalExecutionTime = 0.0;
+    activeItemsCount = 0;
+    runningInstancesCount = 0;
+    stagesCount = 0;
+    workItemsCount = 0;
+}
 
 void MetricsReportVisitor::visitStage(CompositeStage* stage)
 {
-    // Nothing to measure on a stage itself. CompositeStage::accept()
-    // already walks the children, so no recursion is needed here.
-    (void)stage;
+    // CompositeStage::accept walks children; count this node exactly once.
+    if (stage) ++stagesCount;
 }
 
 void MetricsReportVisitor::visitWorkItem(LeafWorkItem* item)
@@ -21,23 +29,41 @@ void MetricsReportVisitor::visitWorkItem(LeafWorkItem* item)
     {
         return;
     }
-    WorkItemState* state = item->getCurrentState();
-    if (state && state->getStateName() == "Active")
+    ++workItemsCount;
+}
+
+void MetricsReportVisitor::recordInstance(const std::map<std::string, std::string>& payload)
+{
+    const auto state = payload.find("State");
+    if (state != payload.end() && state->second != "Completed" && state->second != "Rejected")
+        ++runningInstancesCount;
+    for (std::map<std::string, std::string>::const_iterator it = payload.begin();
+         it != payload.end(); ++it)
     {
-        ++activeItemsCount;
+        if (it->first.compare(0, 9, "workitem:") == 0 &&
+            it->first.size() > 7 &&
+            it->first.compare(it->first.size() - 7, 7, ":status") == 0 &&
+            it->second == "PENDING_APPROVAL")
+        {
+            ++activeItemsCount;
+        }
     }
 }
 
 std::string MetricsReportVisitor::getMetrics()
 {
     std::ostringstream out;
-    out << "Active items: " << activeItemsCount << "\n"
-        << "Total execution time: " << totalExecutionTime << "s";
+    out << "Definition stages: " << stagesCount << "\nWork items: " << workItemsCount << "\n"
+        << "Running instances: " << runningInstancesCount << "\n"
+        << "Active items awaiting approval: " << activeItemsCount << "\n"
+        << "Total execution time: not tracked";
     return out.str();
 }
 
 void MetricsReportVisitor::displayMetrics() const
 {
-    std::cout << "Active items: " << activeItemsCount << "\n"
-              << "Total execution time: " << totalExecutionTime << "s\n";
+    std::cout << "Definition stages: " << stagesCount << "\nWork items: " << workItemsCount << "\n"
+              << "Running instances: " << runningInstancesCount << "\n"
+              << "Active items awaiting approval: " << activeItemsCount << "\n"
+              << "Total execution time: not tracked\n";
 }

@@ -1,3 +1,7 @@
+/**
+ * @file WorkflowVisitor.h
+ * @brief Visitor interface for operations over workflow stages and work items.
+ */
 #ifndef WORKFLOWVISITOR_H
 #define WORKFLOWVISITOR_H
 
@@ -5,6 +9,10 @@
 class CompositeStage;
 class LeafWorkItem;
 
+/**
+ * @class WorkflowVisitor
+ * @brief Visitor interface for operations over workflow stages and work items.
+ */
 class WorkflowVisitor {
 public:
     virtual ~WorkflowVisitor() = default;
