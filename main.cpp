@@ -343,3 +343,333 @@ static std::vector<std::string> askSubjects()
     }
     return selected;
 } 
+
+static std::string askNationality()
+{
+    return askChoice("Applicant status:", {"South African citizen", "International applicant"});
+}
+
+static std::string askUniversityProgramme()
+{
+    return askChoice("Choose your undergraduate programme:",
+                     {"BSc Computer Science", "BCom Accounting",
+                      "BA Media Studies", "BEng Civil Engineering"});
+}
+
+static std::string askDate()
+{
+    while (true) {
+        std::string s = askRequired("Required delivery date (DD/MM/YYYY or YYYY-MM-DD): ");
+        int d=0, m=0, y=0; char a=0, b=0;
+        std::istringstream in(s);
+        if (s.find('/') != std::string::npos) in >> d >> a >> m >> b >> y;
+        else in >> y >> a >> m >> b >> d;
+        char extra = 0;
+        if (!in || (in >> extra) || a != (s.find('/') != std::string::npos ? '/' : '-') || b != a) {
+            std::cout << RED << "Use DD/MM/YYYY or YYYY-MM-DD.\n" << RESET; continue;
+        }
+        if (y < currentYear() || y > currentYear()+10 || m < 1 || m > 12 || d < 1 || d > 31) {
+            std::cout << RED << "Enter a real delivery date from this year through the next 10 years.\n" << RESET; continue;
+        }
+        static const int days[] = {31,28,31,30,31,30,31,31,30,31,30,31};
+        int maxDay = days[m-1];
+        if (m == 2 && ((y%4==0 && y%100!=0) || y%400==0)) maxDay = 29;
+        if (d > maxDay) { std::cout << RED << "That date does not exist on the calendar.\n" << RESET; continue; }
+        std::ostringstream out;
+        out << (d<10?"0":"") << d << "/" << (m<10?"0":"") << m << "/" << y;
+        return out.str();
+    }
+}
+
+static std::string askQuantity()
+{
+    while (true) {
+        std::string s = askRequired("Quantity and unit (e.g. 500 bags): ");
+        std::istringstream in(s); double n=0; in >> n;
+        if (in && n > 0.0 && n <= 1.0e9) {
+            in >> std::ws;
+            if (!in.eof()) return s;
+        }
+        std::cout << RED << "Enter a positive quantity followed by its unit (e.g. 500 bags, 12 tonnes).\n" << RESET;
+    }
+}
+
+    static void printField(const std::string &label, const std::string &value)
+{
+        std::cout << "    " << label;
+        if (label.size() < 20)
+            std::cout << std::string(20 - label.size(), '.');
+        std::cout << " " << value << "\n";
+    }
+
+static void printUniversityCheck(int number, const std::string &title,
+                                     const std::vector<std::pair<std::string, std::string> > &fields,
+                                     bool passed, const std::string &reason)
+{
+    std::cout << "\n " << number << ". " << title << "\n";
+    for (size_t i = 0; i < fields.size(); ++i)
+        printField(fields[i].first, fields[i].second);
+    printField("Result", std::string(passed ? GREEN : RED) +
+                            (passed ? "[PASS]" : "[FAIL]") + RESET);
+    if (!passed)
+        std::cout << "    " << reason << "\n";
+}
+
+    static Document* buildUniversityDocument(const UniversityApplication& application, const std::string& kind)
+    {
+        return Director::constructUniversityDocument(*engine, application.instanceId, kind == "contract");
+    }
+
+    static bool ensureDocumentsDirectory()
+    {
+    #ifdef _WIN32
+        return _mkdir("documents") == 0 || errno == EEXIST;
+    #else
+        return mkdir("documents", 0755) == 0 || errno == EEXIST;
+    #endif
+    }
+
+    static void saveUniversityDocument(const UniversityApplication &application,
+                                       Document *document,
+                                       const std::string &suffix)
+    {
+        if (!engine->canGenerateDocuments(application.instanceId))
+            throw std::runtime_error("Workflow documents are not available");
+        if (!ensureDocumentsDirectory())
+        {
+            std::cout << RED << "Could not create documents directory; display only.\n" << RESET;
+            return;
+        }
+        const std::string path = "documents/" + application.studentNumber + "_" + suffix + ".txt";
+        std::ofstream output(path.c_str());
+        if (!output)
+        {
+            std::cout << RED << "Could not save " << path << "; display only.\n" << RESET;
+            return;
+        }
+        output << document->render();
+        std::cout << "Saved " << path << " (overwritten if it already existed).\n";
+    }
+
+    static void setUniversityApplicationContext(WorkflowInstance *instance,
+                                                const UniversityApplication &application)
+    {
+        WorkflowContext *context = instance->getContext();
+        context->setData("studentName", application.firstName + " " + application.surname);
+        context->setData("firstName", application.firstName);
+        context->setData("surname", application.surname);
+        context->setData("programme", application.programme);
+        context->setData("email", application.email);
+        context->setData("nationality", application.nationality);
+        context->setData("aps", std::to_string(application.aps));
+        context->setData("englishLevel", std::to_string(application.englishLevel));
+        context->setData("matricYear", std::to_string(application.matricYear));
+        context->setData("subjects", joinSubjects(application.subjects));
+        context->setData("studentNumber", application.studentNumber);
+        context->setData("attempt", std::to_string(application.attempt));
+        ProgrammeRule *rule = findProgrammeRule(application.programme);
+        if (rule)
+        {
+            context->setData("requiredAps", std::to_string(rule->minimumAps));
+            context->setData("requiredSubject", rule->requiredSubject);
+            context->setData("seatsTaken", std::to_string(rule->seatsTaken));
+            context->setData("capacityThreshold", std::to_string(rule->threshold));
+        }
+    }
+
+    static void displayUniversityChecks(UniversityApplication& application, WorkflowInstance* instance)
+    {
+        application.reasons.clear();
+        WorkflowContext* context = instance->getContext();
+        ProgrammeRule* rule = findProgrammeRule(application.programme);
+        const bool apsPass = context->getData("rule:undergrad-aps:1:passed") == "true";
+        printUniversityCheck(1, "Academic score (APS)",
+                             {{"Your APS", std::to_string(application.aps)},
+                              {"Required", std::to_string(rule->minimumAps)}},
+                             apsPass,
+                             "Your APS of " + std::to_string(application.aps) +
+                             " is below the " + std::to_string(rule->minimumAps) +
+                             " required for this programme.");
+        if (!apsPass)
+            application.reasons.push_back("APS too low");
+        const bool englishPass = context->getData("rule:undergrad-aps:2:passed") == "true";
+        printUniversityCheck(2, "English level",
+                             {{"Your level", std::to_string(application.englishLevel)},
+                              {"Required", "4"}},
+                             englishPass,
+                             "Your English level of " + std::to_string(application.englishLevel) +
+                             " is below the required level 4.");
+        if (!englishPass)
+            application.reasons.push_back("English level too low");
+        const std::string selectedSubjects = joinSubjects(application.subjects);
+        const bool subjectPass = context->getData("rule:undergrad-aps:3:passed") == "true";
+        printUniversityCheck(3, "Required subjects",
+                             {{"Selected", selectedSubjects},
+                              {"Required", std::string(rule->requiredSubject).empty()
+                                               ? "No special subject"
+                                               : rule->requiredSubject}},
+                             subjectPass,
+                             "The required subject is not among the subjects you selected.");
+        if (!subjectPass)
+            application.reasons.push_back("Missing required subject: " + std::string(rule->requiredSubject));
+        const bool capacityPass = context->getData("rule:undergrad-aps:4:passed") == "true";
+        printUniversityCheck(4, "Programme space",
+                             {{"Programme", application.programme},
+                              {"Seats taken", std::to_string(rule->seatsTaken)},
+                              {"Capacity", std::to_string(rule->capacity)},
+                              {"Threshold", std::to_string(rule->threshold)}},
+                             capacityPass,
+                             "This programme is currently at capacity.");
+        if (!capacityPass)
+            application.reasons.push_back("Programme at capacity");
+
+        std::cout << "------------------------------------------------------------\n"
+                  << " Summary: " << (apsPass + englishPass + subjectPass + capacityPass)
+                  << " of 4 checks passed.\n";
+    }
+
+    static bool processUniversityApplication(UniversityApplication &application,
+                                             WorkflowInstance *instance,
+                                             const std::string &resubmissionNote)
+    {
+        application.reasons.clear();
+        setUniversityApplicationContext(instance, application);
+        std::cout << "\nStep 3 of 5 - Processing application attempt " << application.attempt << "\n"
+                  << "The workflow engine is checking each stage and requirement.\n"
+                  << "------------------------------------------------------------\n";
+        if (!resubmissionNote.empty()) std::cout << resubmissionNote << "\n";
+        processAvailableWork(instance); // Main delegates ordering, checks and transitions to the facade.
+        application.result = engine->getOutcome(application.instanceId);
+        if (application.result != "ACCEPTED") displayUniversityChecks(application, instance);
+        const bool accepted = application.result == "ACCEPTED";
+        engine->recordEvent(application.instanceId,
+            std::string(accepted ? "Accepted - all checks passed (attempt " : "Rejected - checks failed (attempt ") +
+            std::to_string(application.attempt) + ")");
+        if (accepted) ++findProgrammeRule(application.programme)->seatsTaken;
+        gUniversityApplications[application.instanceId] = application;
+        return accepted;
+    }
+
+    static void sendAdapterAndVisitorSummary(const std::string &label,
+                                             WorkflowInstance *instance,
+                                             const std::string &result);
+
+    static void showUniversityResult(const UniversityApplication &application)
+    {
+        const bool accepted = application.result == "ACCEPTED";
+        std::cout << "\nStep 4 of 5 - Application result\n"
+                  << (accepted ? GREEN : RED)
+                  << "========================================\n"
+                  << "Result: " << application.result << "\n"
+                  << "Attempt: " << application.attempt << "\n"
+                  << "Applicant: " << application.firstName << " " << application.surname << "\n"
+                  << "Student number: " << application.studentNumber << "\n"
+                  << "Instance ID: " << application.instanceId << "\n"
+                  << "Programme: " << application.programme << "\n";
+        if (!accepted)
+        {
+            std::cout << "Reasons:\n";
+            for (size_t i = 0; i < application.reasons.size(); ++i)
+                std::cout << "- " << application.reasons[i] << "\n";
+        }
+        std::cout << "========================================\n" << RESET
+                  << "\nStep 5 of 5 - Application complete\n"
+                  << "Your application is complete. Thank you.\n";
+        WorkflowInstance *instance = engine->getInstance(application.instanceId);
+        if (instance)
+            sendAdapterAndVisitorSummary(application.studentNumber, instance,
+                                         application.result);
+    }
+
+    static UniversityApplication *findUniversityApplication(const std::string &key);
+    static void menuEditUniversity(const std::string &key);
+
+    static void attachUniversityObservers(WorkflowInstance *instance)
+    {
+        if (gObservers.empty())
+        {
+            gObservers.push_back(std::unique_ptr<EventObserver>(new NotificationObserver()));
+            gObservers.push_back(std::unique_ptr<EventObserver>(new StateObserver()));
+        }
+        for (size_t i = 0; i < gObservers.size(); ++i)
+            instance->attach(gObservers[i].get());
+        instance->attach(&gUniversityHistory);
+        if (instance->getContext()->getData("definitionId") == "construction-procurement")
+            instance->attach(ledger);
+    }
+
+    static void menuStartUniversity()
+    {
+        heading("Start a university application");
+        UniversityApplication application;
+        application.studentNumber = generateStudentNumber();
+
+        std::cout << "\nStep 1 of 5 - Application started\n";
+        std::map<std::string, std::string> initial;
+        initial["definitionId"] = "undergraduate-admissions";
+        initial["studentNumber"] = application.studentNumber;
+        initial["ID"] = "";
+        WorkflowInstance *instance = engine->startWorkflow("undergraduate-admissions", initial);
+        application.instanceId = instance->getInstanceID();
+        attachUniversityObservers(instance);
+        engine->recordEvent(instance->getInstanceID(), "Application received (attempt 1)");
+        gUniversityApplications[application.instanceId] = application;
+        std::cout << "Generated student number: " << application.studentNumber << "\n"
+                  << "Workflow instance ID: " << application.instanceId << "\n";
+
+        std::cout << "\nStep 2 of 5 - Applicant information\n";
+        application.firstName = askRequired("First name: ");
+        application.surname = askRequired("Surname: ");
+        application.programme = askUniversityProgramme();
+        application.email = askEmail();
+        application.nationality = askNationality();
+        application.aps = askIntRange("APS (out of 42): ", 0, 42);
+        application.englishLevel = askIntRange("NSC English level (1-7): ", 1, 7);
+        application.matricYear = askIntRange("Matric year: ", 1900, currentYear());
+        application.subjects = askSubjects();
+        std::cout << GREEN << "Confirmation email sent to " << application.email << ".\n" << RESET;
+        gUniversityApplications[application.instanceId] = application;
+        const bool accepted = processUniversityApplication(application, instance, "");
+        showUniversityResult(application);
+        if (!accepted)
+        {
+            const std::string answer = trim(ask("Would you like to edit your application and resubmit it now? (y/n) "));
+            if (answer == "y" || answer == "Y")
+                menuEditUniversity(application.instanceId);
+        }
+    }
+
+    static void printEditableUniversityApplication(const UniversityApplication &application)
+    {
+        std::cout << "\nWhich part of your application would you like to edit?\n"
+                  << "  1. First name (current: " << application.firstName << ")\n"
+                  << "  2. Surname (current: " << application.surname << ")\n"
+                  << "  3. Email (current: " << application.email << ")\n"
+                  << "  4. Nationality (current: " << application.nationality << ")\n"
+                  << "  5. Degree / programme (current: " << application.programme << ")\n"
+                  << "  6. APS score (current: " << application.aps << ")\n"
+                  << "  7. English level (current: " << application.englishLevel << ")\n"
+                  << "  8. Matric year (current: " << application.matricYear << ")\n"
+                  << "  9. High-school subjects (current: "
+                  << joinSubjects(application.subjects) << ")\n"
+                  << " 10. Cancel\n";
+    }
+
+    static std::string universityFieldValue(const UniversityApplication &application,
+                                             int field)
+    {
+        switch (field)
+        {
+        case 1: return application.firstName;
+        case 2: return application.surname;
+        case 3: return application.email;
+        case 4: return application.nationality;
+        case 5: return application.programme;
+        case 6: return std::to_string(application.aps);
+        case 7: return std::to_string(application.englishLevel);
+        case 8: return std::to_string(application.matricYear);
+        case 9: return joinSubjects(application.subjects);
+        default: return "";
+        }
+    }
+
