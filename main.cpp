@@ -1338,3 +1338,330 @@ static void menuEditUniversity(const std::string &key)
             }
         }
     }
+
+    void cleanup()
+{
+    for (const auto& entry : gUniversityApplications) {
+        WorkflowInstance* instance = engine->getInstance(entry.first);
+        if (instance) {
+            for (const auto& observer : gObservers) instance->detach(observer.get());
+            instance->detach(&gUniversityHistory);
+            instance->detach(ledger);
+        }
+    }
+    for (const auto& entry : gProcurementRequests) {
+        WorkflowInstance* instance = engine->getInstance(entry.first);
+        if (instance) {
+            for (const auto& observer : gObservers) instance->detach(observer.get());
+            instance->detach(&gUniversityHistory);
+            instance->detach(ledger);
+        }
+    }
+    gObservers.clear();
+}
+} // namespace FixedUI
+
+// ---- Configurable workflow forms and presentation ----
+namespace GenericUI
+{
+using namespace GenericDriver;
+namespace
+{
+struct HistoryEntry
+{
+    std::string timestamp;
+    std::string state;
+    std::string event;
+    std::string note;
+};
+
+struct InstanceRecord
+{
+    std::string reference;
+    std::string definitionId;
+    std::string status;
+    std::vector<std::string> completed;
+    std::vector<HistoryEntry> history;
+    std::string result;
+    std::string documentPath;
+    std::map<std::string, std::string> data;
+};
+
+std::string lower(std::string value);
+std::string typeName(WorkflowType type);
+std::string structureName(WorkflowStructure structure);
+
+using UI::engine;
+std::map<std::string, WorkflowDefinitionSpec> gDefinitions;
+std::map<std::string, InstanceRecord> gInstances;
+std::vector<std::unique_ptr<EventObserver> > gObservers;
+unsigned long gDefinitionSequence = 1;
+
+
+const char* GREEN = "\033[32;1m";
+const char* RED = "\033[31;1m";
+const char* CYAN = "\033[36m";
+const char* RESET = "\033[0m";
+
+void rule()
+{
+    std::cout << "------------------------------------------------------------\n";
+}
+
+void heading(const std::string& text)
+{
+    TerminalUI::title(text);
+    rule();
+    std::cout << text << "\n";
+    rule();
+}
+
+std::string trim(const std::string& value)
+{
+    const size_t first = value.find_first_not_of(" \t\r\n");
+    if (first == std::string::npos)
+        return "";
+    const size_t last = value.find_last_not_of(" \t\r\n");
+    return value.substr(first, last - first + 1);
+}
+
+std::string ask(const std::string& prompt)
+{
+    std::string value;
+    if (!UI::readUserInput(value, prompt))
+        throw std::runtime_error("Input ended before the operation was completed.");
+    return trim(value);
+}
+
+int askInt(const std::string& prompt, int minimum, int maximum)
+{
+    for (;;)
+    {
+        std::string raw;
+        if (!UI::readUserInput(raw, prompt, true, minimum, maximum))
+            throw std::runtime_error("Input ended before the operation was completed.");
+        const std::string value = trim(raw);
+        std::istringstream input(value);
+        int result = 0;
+        char extra = '\0';
+        if ((input >> result) && !(input >> extra) &&
+            result >= minimum && result <= maximum)
+            return result;
+        std::cout << "  Please enter a number from " << minimum << " to "
+                  << maximum << ".\n";
+    }
+}
+
+std::string required(const std::string& prompt, size_t maximum = 100)
+{
+    for (;;)
+    {
+        const std::string value = ask(prompt);
+        if (!value.empty() && value.size() <= maximum)
+            return value;
+        std::cout << "  This value is required and may contain at most "
+                  << maximum << " characters.\n";
+    }
+}
+
+double number(const std::string& prompt, bool positive = true)
+{
+    for (;;)
+    {
+        const std::string value = ask(prompt);
+        char* end = nullptr;
+        const double result = std::strtod(value.c_str(), &end);
+        if (end != value.c_str() && *end == '\0' && std::isfinite(result) && (!positive || result > 0.0))
+            return result;
+        std::cout << "  Please enter " << (positive ? "a positive " : "a ")
+                  << "number.\n";
+    }
+}
+
+std::string methodName(ExecutionMethod method)
+{
+    return method == ExecutionMethod::Manual ? "Manual" : "Automated";
+}
+
+std::string typeName(WorkflowType type)
+{
+    switch (type)
+    {
+    case WorkflowType::Case: return "Case";
+    case WorkflowType::Project: return "Project";
+    case WorkflowType::Approval: return "Approval";
+    case WorkflowType::DocumentManagement: return "Document Management";
+    }
+    return "";
+}
+
+std::string structureName(WorkflowStructure structure)
+{
+    switch (structure)
+    {
+    case WorkflowStructure::RuleDriven: return "Rule-driven";
+    case WorkflowStructure::StateMachine: return "State machine";
+    case WorkflowStructure::Parallel: return "Parallel";
+    case WorkflowStructure::Sequential: return "Sequential";
+    }
+    return "";
+}
+
+std::string fieldTypeName(FieldType type)
+{
+    return type == FieldType::Text ? "Text" : "Number";
+}
+
+std::string lower(std::string value)
+{
+    for (size_t i = 0; i < value.size(); ++i)
+        value[i] = static_cast<char>(std::tolower(static_cast<unsigned char>(value[i])));
+    return value;
+}
+
+bool validFieldName(const std::string& value)
+{
+    if (value.empty())
+        return false;
+    for (size_t i = 0; i < value.size(); ++i)
+        if (!(std::isalnum(static_cast<unsigned char>(value[i])) || value[i] == '_'))
+            return false;
+    const std::string key = lower(value);
+    static const char* reserved[] = {
+        "id", "state", "event", "assignee", "workitem", "approval", "scenario", "result", "definitionid", "budgetcommitted"
+    };
+    for (size_t i = 0; i < sizeof(reserved) / sizeof(reserved[0]); ++i)
+        if (key == reserved[i])
+            return false;
+    return true;
+}
+
+std::string nowText()
+{
+    std::time_t now = std::time(nullptr);
+    char buffer[32] = {};
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", std::localtime(&now));
+    return buffer;
+}
+
+void addHistory(InstanceRecord& record, const std::string& state,
+                const std::string& event, const std::string& note)
+{
+    record.history.push_back({nowText(), state, event, note});
+}
+
+std::vector<std::string> templateSequence(WorkflowType type,
+                                          WorkflowStructure structure)
+{
+    return WorkflowTemplateFactory::sequence(type, structure);
+}
+
+std::string signature(const WorkflowDefinitionSpec& spec)
+{
+    std::ostringstream result;
+    for (size_t i = 0; i < spec.sequence.size(); ++i)
+        result << "|" << spec.sequence[i];
+    return result.str();
+}
+
+void verifyTemplates()
+{
+    std::set<std::string> signatures;
+    for (int type = 0; type < 4; ++type)
+        for (int structure = 0; structure < 4; ++structure)
+        {
+            WorkflowDefinitionSpec spec;
+            spec.type = static_cast<WorkflowType>(type);
+            spec.structure = static_cast<WorkflowStructure>(structure);
+            spec.sequence = templateSequence(spec.type, spec.structure);
+            if (!signatures.insert(signature(spec)).second)
+                std::cout << "Internal error: duplicate workflow template.\n";
+        }
+}
+
+void collectLeaves(WorkflowComponent* node, std::vector<LeafWorkItem*>& leaves)
+{
+    CompositeStage* stage = dynamic_cast<CompositeStage*>(node);
+    if (stage)
+    {
+        const std::vector<std::shared_ptr<WorkflowComponent> >& children =
+            stage->getChildren();
+        for (size_t i = 0; i < children.size(); ++i)
+            collectLeaves(children[i].get(), leaves);
+        return;
+    }
+    LeafWorkItem* leaf = dynamic_cast<LeafWorkItem*>(node);
+    if (leaf)
+        leaves.push_back(leaf);
+}
+
+void attachObservers(WorkflowInstance* instance)
+{
+    if (gObservers.empty())
+    {
+        gObservers.push_back(std::unique_ptr<EventObserver>(new NotificationObserver()));
+        gObservers.push_back(std::unique_ptr<EventObserver>(new StateObserver()));
+        gObservers.push_back(std::unique_ptr<EventObserver>(new AuditLoggerObserver()));
+    }
+    for (size_t i = 0; i < gObservers.size(); ++i)
+        instance->attach(gObservers[i].get());
+}
+
+WorkflowDefinitionSpec* findDefinition(const std::string& id)
+{
+    std::map<std::string, WorkflowDefinitionSpec>::iterator it = gDefinitions.find(id);
+    return it == gDefinitions.end() ? nullptr : &it->second;
+}
+
+std::string tuple(const WorkflowDefinitionSpec& spec)
+{
+    return methodName(spec.method) + " / " + typeName(spec.type) + " / " +
+           structureName(spec.structure);
+}
+
+std::string statusColour(const std::string& status)
+{
+    return status == "Completed" ? GREEN : (status == "Rejected" ? RED : CYAN);
+}
+
+std::string createDocument(const WorkflowDefinitionSpec& spec,
+                           InstanceRecord& instance)
+{
+    if (!engine->canGenerateDocuments(instance.reference))
+        throw std::runtime_error("Result documents require a terminal engine outcome");
+#ifdef _WIN32
+    const int created = _mkdir("documents");
+#else
+    const int created = mkdir("documents", 0755);
+#endif
+    if (created != 0 && errno != EEXIST) throw std::runtime_error("Cannot create documents directory");
+    const std::string path = "documents/" + instance.reference + "_" +
+                             lower(typeName(spec.type)) + "_result.txt";
+    std::map<std::string, std::string> metadata;
+    metadata["document:workflow"] = spec.name;
+    metadata["document:industry"] = spec.industry;
+    metadata["document:tuple"] = tuple(spec);
+    metadata["document:history:count"] = std::to_string(instance.history.size());
+    for (std::size_t i = 0; i < instance.history.size(); ++i) {
+        const std::string prefix = "document:history:" + std::to_string(i) + ":";
+        metadata[prefix + "state"] = instance.history[i].state;
+        metadata[prefix + "event"] = instance.history[i].event;
+        metadata[prefix + "note"] = instance.history[i].note;
+    }
+    const bool transactional = spec.type == WorkflowType::Project || spec.type == WorkflowType::Approval;
+    std::unique_ptr<Document> document(Director::constructResultDocument(*engine, instance.reference,
+        metadata, spec.type == WorkflowType::DocumentManagement, transactional));
+    std::ofstream output(path.c_str());
+    if (!output) throw std::runtime_error("Unable to create result document: " + path);
+    output << document->render();
+    return path;
+}
+
+void printSequence(const WorkflowDefinitionSpec& spec)
+{
+    std::cout << "Workflow Sequence:\n";
+    for (size_t i = 0; i < spec.sequence.size(); ++i)
+        std::cout << "  " << (i + 1) << ". " << spec.sequence[i]
+                  << " - " << (spec.workItemRoles.empty() ? spec.roles[i % spec.roles.size()] : spec.workItemRoles[i])
+                  << (spec.stageNames.empty() ? "" : " [Stage: " + spec.stageNames[i] + "]") << "\n";
+}
