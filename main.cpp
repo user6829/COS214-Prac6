@@ -1999,3 +1999,313 @@ void printProcessing(const WorkflowDefinitionSpec& spec, InstanceRecord& record,
         std::cout << statusColour(record.status) << "\n  Result: " << record.result << "\n" << RESET;
     }
 }
+
+void presentGenericCompletion(const WorkflowDefinitionSpec& spec, InstanceRecord& stored, WorkflowInstance* instance)
+{
+    if (!engine->canGenerateDocuments(instance->getInstanceID())) return;
+    stored.documentPath = createDocument(spec, stored);
+    std::cout << "Result document: " << stored.documentPath << "\n";
+    LegacyiHookAPI legacy;
+    LegacyiHookAdapter adapter(&legacy);
+    adapter.sendPayload(instance->getContext()->getAll());
+    MetricsReportVisitor visitor;
+    engine->exportMetrics(&visitor);
+    std::cout << "Visitor summary:\n";
+    visitor.displayMetrics();
+}
+
+void runInstance(const std::string& definitionId)
+{
+    WorkflowDefinitionSpec* spec = findDefinition(definitionId);
+    if (!spec)
+    {
+        std::cout << "  Workflow definition not found.\n";
+        return;
+    }
+    InstanceRecord record;
+    record.definitionId = definitionId;
+    record.status = "Not Started";
+    record.data = collectInstanceData(*spec);
+    record.data["scenario"] = spec->name;
+    WorkflowInstance* instance = engine->startWorkflow(
+        definitionId, record.data);
+    record.reference = instance->getInstanceID();
+    attachObservers(instance);
+    record.status = "In Progress";
+    gInstances[record.reference] = record;
+    WorkflowDefinition* definition = engine->getDefinition(definitionId);
+    heading("WORKFLOW PROCESSING - " + spec->name);
+    std::cout << "Reference: " << record.reference << "\n"
+              << "Tuple: " << tuple(*spec) << "\n";
+    printProcessing(*spec, gInstances[record.reference], instance, definition);
+    InstanceRecord& stored = gInstances[record.reference];
+    if (stored.status == "Completed") presentGenericCompletion(*spec, stored, instance);
+}
+
+void chooseAndRun()
+{
+    if (gDefinitions.empty())
+    {
+        std::cout << "No workflows are defined. Choose option 1 first.\n";
+        return;
+    }
+    heading("SELECT A DEFINED WORKFLOW");
+    int number = 1;
+    std::vector<std::string> ids;
+    for (std::map<std::string, WorkflowDefinitionSpec>::const_iterator it = gDefinitions.begin();
+         it != gDefinitions.end(); ++it)
+    {
+        std::cout << number++ << ". " << it->second.name << " | "
+                  << it->second.industry << " | " << tuple(it->second) << "\n";
+        ids.push_back(it->first);
+    }
+    const int selected = askInt("Choose: ", 1, static_cast<int>(ids.size()));
+    runInstance(ids[static_cast<size_t>(selected - 1)]);
+}
+
+void viewDefinitions()
+{
+    heading("DEFINED WORKFLOWS");
+    if (gDefinitions.empty()) { std::cout << "No workflows are defined.\n"; return; }
+    for (std::map<std::string, WorkflowDefinitionSpec>::const_iterator it = gDefinitions.begin();
+         it != gDefinitions.end(); ++it)
+    {
+        std::cout << it->second.id << " | " << it->second.name << " | "
+                  << it->second.industry << " | " << tuple(it->second) << "\n";
+        printSequence(it->second);
+    }
+}
+
+void viewStatus()
+{
+    heading("WORKFLOW STATUS");
+    if (gInstances.empty()) { std::cout << "No workflow instances exist.\n"; return; }
+    for (std::map<std::string, InstanceRecord>::const_iterator it = gInstances.begin();
+         it != gInstances.end(); ++it)
+    {
+        const WorkflowDefinitionSpec& spec = gDefinitions[it->second.definitionId];
+        std::cout << it->first << " | " << spec.name << " | "
+                  << tuple(spec) << " | " << statusColour(it->second.status)
+                  << it->second.status << RESET << "\n"
+                  << "  Completed: " << it->second.completed.size()
+                  << "  Remaining: " << (spec.sequence.size() - it->second.completed.size())
+                  << "\n";
+    }
+}
+
+void viewHistory()
+{
+    heading("WORKFLOW HISTORY");
+    const std::string reference = required("Instance reference: ");
+    std::map<std::string, InstanceRecord>::const_iterator it = gInstances.find(reference);
+    if (it == gInstances.end()) { std::cout << "  Unknown instance.\n"; return; }
+    AuditCaretaker* caretaker = engine->getAuditCaretaker();
+    for (int i = 0; i < caretaker->size(reference); ++i) {
+        WorkflowMemento* snapshot = caretaker->getSnapshot(reference, i);
+        std::cout << "  Snapshot " << i << " | " << snapshot->getTimestamp() << " | "
+                  << snapshot->getState()->at("state") << " | " << snapshot->getState()->at("eventName") << "\n";
+    }
+    for (size_t i = 0; i < it->second.history.size(); ++i)
+        std::cout << "  " << it->second.history[i].timestamp << " | "
+                  << it->second.history[i].state << " | "
+                  << it->second.history[i].event << " | "
+                  << it->second.history[i].note << "\n";
+}
+
+void generateDocument()
+{
+    heading("GENERATE WORKFLOW RESULT DOCUMENT");
+    const std::string reference = required("Instance reference: ");
+    std::map<std::string, InstanceRecord>::iterator it = gInstances.find(reference);
+    if (it == gInstances.end()) { std::cout << "  Unknown instance.\n"; return; }
+    if (it->second.status != "Completed" && it->second.status != "Rejected")
+    {
+        std::cout << "  The workflow is unfinished; complete it before generating a result.\n";
+        return;
+    }
+    it->second.documentPath = createDocument(gDefinitions[it->second.definitionId], it->second);
+    std::cout << "  Document regenerated: " << it->second.documentPath << "\n";
+}
+
+} // namespace
+
+void printMenu()
+{
+    TerminalUI::title("Generic Workflow Builder");
+    heading("GENERIC WORKFLOW DRIVER");
+    std::cout << "1. Define a new workflow\n"
+              << "2. Run a defined workflow\n"
+              << "3. View defined workflows\n"
+              << "4. View workflow status\n"
+              << "5. View workflow history\n"
+              << "6. Generate workflow result document\n"
+              << "7. Choose a different workflow scenario\n"
+              << "8. Exit\n"
+              << "9. Resume a paused or waitlisted workflow\n";
+}
+
+void handleAction(int choice)
+{
+    if (choice == 1) {
+        WorkflowDefinitionSpec spec = defineWorkflow();
+        engine->registerDefinition(spec.id, WorkflowTemplateFactory::createDefinition(spec));
+        gDefinitions[spec.id] = spec;
+        std::cout << "Workflow registered as " << spec.id << ".\n";
+        if (lower(ask("Run it now? (y/n): ")) == "y") runInstance(spec.id);
+    } else if (choice == 2) chooseAndRun();
+    else if (choice == 3) viewDefinitions();
+    else if (choice == 4) viewStatus();
+    else if (choice == 5) viewHistory();
+    else if (choice == 6) generateDocument();
+    else if (choice == 9) {
+        const std::string id = required("Instance reference: ");
+        auto it = gInstances.find(id);
+        if (it == gInstances.end()) throw std::invalid_argument("Unknown instance");
+        WorkflowInstance* instance = engine->getInstance(id);
+        printProcessing(gDefinitions.at(it->second.definitionId), it->second, instance,
+                        engine->getDefinition(it->second.definitionId));
+        if (engine->canGenerateDocuments(id))
+            presentGenericCompletion(gDefinitions.at(it->second.definitionId), it->second, instance);
+    }
+}
+
+void cleanup()
+{
+    for (const auto& entry : gInstances) {
+        WorkflowInstance* instance = engine->getInstance(entry.first);
+        if (instance) for (const auto& observer : gObservers) instance->detach(observer.get());
+    }
+    gObservers.clear();
+}
+} // namespace GenericUI
+
+// ---- Application menu and session composition ----
+namespace
+{
+void printLauncher()
+{
+    TerminalUI::title("Dashboard");
+    TerminalUI::choices({{"1", "University Application"}, {"2", "Construction Material Procurement"},
+                         {"3", "Generic Workflow Builder"}, {"0", "Exit"}});
+    std::cout << "================================================================\n"
+              << "  TIVIDY - choose a workflow\n"
+              << "================================================================\n"
+              << "  1. Scenario 1 - University application\n"
+              << "     Apply for an undergraduate programme\n"
+              << "  2. Scenario 2 - Construction material procurement\n"
+              << "     Submit, review and approve a material request\n"
+              << "  3. Scenario 3 - Generic workflow driver\n"
+              << "     Define a new workflow (method / type / structure) and run it\n"
+              << "  0. Exit\n"
+              << "================================================================\n";
+}
+
+bool readLauncherChoice(int& choice)
+{
+    std::string input;
+    if (!UI::readUserInput(input, "Choose an option: ", true, 0, 3))
+        return false;
+    try
+    {
+        std::size_t parsed = 0;
+        choice = std::stoi(input, &parsed);
+        if (parsed != input.size() || choice < 0 || choice > 3)
+            throw std::invalid_argument("out of range");
+        return true;
+    }
+    catch (const std::exception&)
+    {
+        choice = -1;
+        std::cout << "Enter a whole number from 0 to 3.\n";
+        return true;
+    }
+}
+}
+
+namespace {
+// Menu orchestration lives here; scenario modules retain their reusable forms,
+// business configuration and document presentation. Only the facade advances work.
+void runScenarioMenu(int scenario)
+{
+    const std::string fixed = scenario == 1 ? "university" : "construction";
+    TerminalUI::title(scenario == 1 ? "University Application" : scenario == 2 ? "Construction Procurement" : "Generic Workflow Builder");
+    if (scenario != 3)
+        std::cout << "\033[36m\nWelcome to TIVIDY — workflows that adapt to the process.\n\n\033[0m";
+    while (std::cin) {
+        if (scenario == 3) GenericUI::printMenu();
+        else FixedUI::printScenarioMenu(fixed);
+        std::string input;
+        if (!UI::readUserInput(input, scenario == 3 ? "Choose: " : "Choose an action: ", true, scenario == 3 ? 1 : 0, 9)) return;
+        try {
+            std::istringstream menuInput(input);
+            int action = -1;
+            char extra = 0;
+            if (!(menuInput >> action) || (menuInput >> extra) || action < (scenario == 3 ? 1 : 0) || action > 9) {
+                std::cout << "Enter a whole number from " << (scenario == 3 ? 1 : 0) << " to 9.\n";
+                continue;
+            }
+            if ((scenario == 1 && (action == 0 || action == 6 || action == 7)) ||
+                (scenario == 2 && (action == 0 || action == 9)) ||
+                (scenario == 3 && (action == 7 || action == 8))) return;
+            if (scenario == 3) GenericUI::handleAction(action);
+            else FixedUI::handleAction(fixed, action);
+            TerminalUI::showOutput("Results / history / documents");
+        } catch (const std::exception& error) {
+            std::cout << "Error: " << error.what() << "\n";
+            if (!std::cin) return;
+            TerminalUI::showOutput("Action needs attention");
+        }
+    }
+}
+}
+
+int main(int argc, char** argv)
+{
+    bool interactive = TerminalUI::available();
+    const char* plain = std::getenv("TIVIDY_PLAIN");
+    if (plain && std::string(plain) == "1") interactive = false;
+    for (int i = 1; i < argc; ++i) {
+        const std::string argument = argv[i];
+        if (argument == "--plain") interactive = false;
+        else if (argument == "--tui") interactive = true;
+        else if (argument == "--help") {
+            std::cout << "Usage: tividy [--plain | --tui]\nInteractive terminals use ncurses; redirected input keeps the original CLI.\n";
+            return 0;
+        } else { std::cerr << "Unknown option: " << argument << "\n"; return 1; }
+    }
+    if (interactive && !TerminalUI::available()) {
+        std::cerr << "The TUI needs an interactive terminal and TERM; use --plain.\n";
+        return 1;
+    }
+    std::unique_ptr<TerminalUI> terminal;
+    try { terminal.reset(new TerminalUI(interactive)); }
+    catch (const std::exception& error) { std::cerr << error.what() << "\n"; return 1; }
+    BudgetLedger balances;
+    TividyEngineFacade session;
+    UI::engine = &session;
+    UI::ledger = &balances;
+    try {
+        if (!FixedUI::validateProgrammeRules()) throw std::runtime_error("Invalid programme configuration");
+        GenericUI::verifyTemplates();
+        UniversityWorkflowDirector university;
+        ProcurementWorkflowDirector procurement(balances);
+        session.registerDefinition("undergraduate-admissions", university.constructWorkflow());
+        session.registerDefinition("construction-procurement", procurement.constructWorkflow());
+        while (std::cin) {
+            printLauncher();
+            int choice = -1;
+            if (!readLauncherChoice(choice) || choice == 0) break;
+            if (choice >= 1 && choice <= 3) runScenarioMenu(choice);
+        }
+    } catch (const std::exception& error) {
+        std::cout << "\nSession ended: " << error.what() << "\n";
+    }
+    FixedUI::cleanup();
+    GenericUI::cleanup();
+    std::cout << "Goodbye.\n";
+    const bool restoreScreen = TerminalUI::active();
+    terminal.reset();
+    if (restoreScreen) std::cout << "Goodbye.\n";
+    return 0;
+}        
+        
