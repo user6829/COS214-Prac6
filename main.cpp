@@ -1665,3 +1665,337 @@ void printSequence(const WorkflowDefinitionSpec& spec)
                   << " - " << (spec.workItemRoles.empty() ? spec.roles[i % spec.roles.size()] : spec.workItemRoles[i])
                   << (spec.stageNames.empty() ? "" : " [Stage: " + spec.stageNames[i] + "]") << "\n";
 }
+
+void printReview(const WorkflowDefinitionSpec& spec)
+{
+    heading("REVIEW YOUR WORKFLOW");
+    std::cout << "Execution Method: " << methodName(spec.method) << "\n"
+              << "Workflow Type: " << typeName(spec.type) << "\n"
+              << "Workflow Structure: " << structureName(spec.structure) << "\n"
+              << "Industry: " << spec.industry << "\n"
+              << "Process Name: " << spec.name << "\n"
+              << "Roles:\n";
+    for (size_t i = 0; i < spec.roles.size(); ++i)
+        std::cout << "  - " << spec.roles[i] << "\n";
+    std::cout << "Data Fields:\n";
+    for (size_t i = 0; i < spec.fields.size(); ++i)
+        std::cout << "  - " << spec.fields[i].name << " (" <<
+            fieldTypeName(spec.fields[i].type) << ")\n";
+    if (spec.structure == WorkflowStructure::Parallel)
+        std::cout << "Note: branches are logically independent; the engine runs them "
+                     "sequentially and then records the join.\n";
+    if (spec.structure == WorkflowStructure::RuleDriven)
+        std::cout << "Rule: " << spec.ruleField << " < " << spec.threshold
+                  << " -> " << spec.belowPath << "; otherwise " << spec.abovePath << "\n";
+    printSequence(spec);
+    std::cout << "\n1. Confirm and register\n"
+              << "2. Change execution method\n"
+              << "3. Change workflow type\n"
+              << "4. Change workflow structure\n"
+              << "5. Change industry details\n"
+              << "6. Cancel\n"
+              << "7. Configure stages and work items\n";
+}
+
+ExecutionMethod chooseMethod()
+{
+    heading("STEP 1 OF 4 - PROCESS EXECUTION METHOD");
+    std::cout << "1. Manual - People carry out and approve each step.\n"
+              << "2. Automated - The system executes the process using configured rules.\n";
+    return askInt("Choose: ", 1, 2) == 1 ? ExecutionMethod::Manual :
+                                           ExecutionMethod::Automated;
+}
+
+WorkflowType chooseType()
+{
+    heading("STEP 2 OF 4 - PROCESS WORKFLOW TYPE");
+    std::cout << "1. Case - Investigate and resolve cases, complaints or incidents.\n"
+              << "2. Project - Plan and deliver projects through milestones.\n"
+              << "3. Approval - Submit, evaluate and approve or reject requests.\n"
+              << "4. Document Management - Create, review, publish and manage documents.\n";
+    return static_cast<WorkflowType>(askInt("Choose: ", 1, 4) - 1);
+}
+
+WorkflowStructure chooseStructure()
+{
+    heading("STEP 3 OF 4 - PROCESS WORKFLOW STRUCTURE");
+    std::cout << "1. Rule-driven - Rules choose the path.\n"
+              << "2. State machine - Named states and allowed transitions.\n"
+              << "3. Parallel - Independent branches complete before the join.\n"
+              << "4. Sequential - Activities run in a fixed order.\n";
+    const int choice = askInt("Choose: ", 1, 4);
+    return choice == 1 ? WorkflowStructure::RuleDriven :
+           choice == 2 ? WorkflowStructure::StateMachine :
+           choice == 3 ? WorkflowStructure::Parallel :
+                         WorkflowStructure::Sequential;
+}
+
+std::vector<std::string> defaultRoles(WorkflowType type)
+{
+    if (type == WorkflowType::Case) return {"Case Handler", "Investigator", "Supervisor"};
+    if (type == WorkflowType::Project) return {"Project Coordinator", "Delivery Team", "Project Sponsor"};
+    if (type == WorkflowType::Approval) return {"Requester", "Reviewer", "Approver"};
+    return {"Author", "Reviewer", "Publisher"};
+}
+
+void collectFields(WorkflowDefinitionSpec& spec)
+{
+    const int fieldCount = askInt("Number of data fields (1-6): ", 1, 6);
+    std::set<std::string> names;
+    for (int i = 0; i < fieldCount; ++i)
+    {
+        FieldSpec field;
+        for (;;)
+        {
+            field.name = required("  Field name: ");
+            if (validFieldName(field.name) && names.insert(lower(field.name)).second)
+                break;
+            std::cout << "  Use unique letters, numbers and underscores only; "
+                         "reserved names are not allowed.\n";
+        }
+        field.type = askInt("  1. Text  2. Number: ", 1, 2) == 1
+            ? FieldType::Text : FieldType::Number;
+        spec.fields.push_back(field);
+    }
+
+ }
+
+void collectRoutingRule(WorkflowDefinitionSpec& spec)
+{
+    bool hasNumber = false;
+    for (size_t i = 0; i < spec.fields.size(); ++i)
+        hasNumber = hasNumber || spec.fields[i].type == FieldType::Number;
+    if (spec.structure == WorkflowStructure::RuleDriven && !hasNumber)
+        throw std::runtime_error("Rule-driven workflows require at least one number field.");
+    if (hasNumber)
+    {
+        std::cout << "Configure optional routing rule? (y/n)\n";
+        if (lower(ask("Choose: ")) == "y")
+        {
+            for (;;)
+            {
+                for (size_t i = 0; i < spec.fields.size(); ++i)
+                    if (spec.fields[i].type == FieldType::Number)
+                        std::cout << "  " << spec.fields[i].name << "\n";
+                spec.ruleField = required("Numeric field: ");
+                bool found = false;
+                for (size_t i = 0; i < spec.fields.size(); ++i)
+                    found = found || (spec.fields[i].name == spec.ruleField &&
+                        spec.fields[i].type == FieldType::Number);
+                if (found) break;
+                std::cout << "  Choose one of the listed numeric fields.\n";
+            }
+            spec.threshold = number("Threshold: ");
+            spec.belowPath = required("Path below threshold: ");
+            spec.abovePath = required("Path at or above threshold: ");
+        }
+    }
+    if (spec.structure == WorkflowStructure::RuleDriven && spec.ruleField.empty())
+    {
+        for (size_t i = 0; i < spec.fields.size(); ++i)
+            if (spec.fields[i].type == FieldType::Number)
+            {
+                spec.ruleField = spec.fields[i].name;
+                break;
+            }
+        spec.threshold = number("Threshold: ");
+        spec.belowPath = required("Path below threshold: ");
+        spec.abovePath = required("Path at or above threshold: ");
+    }
+}
+
+void collectDetails(WorkflowDefinitionSpec& spec)
+{
+    heading("STEP 4 OF 4 - INDUSTRY APPLICATION DETAILS");
+    spec.industry = required("Industry: ");
+    spec.name = required("Process name: ");
+    for (std::map<std::string, WorkflowDefinitionSpec>::const_iterator it = gDefinitions.begin();
+         it != gDefinitions.end(); ++it)
+        if (lower(it->second.name) == lower(spec.name))
+            throw std::runtime_error("A workflow with that process name already exists.");
+
+    spec.roles = defaultRoles(spec.type);
+    std::cout << "Default roles:\n";
+    for (size_t i = 0; i < spec.roles.size(); ++i)
+    {
+        const std::string replacement = ask("  " + spec.roles[i] + " (blank keeps default): ");
+        if (!replacement.empty())
+            spec.roles[i] = replacement;
+    }
+
+    collectFields(spec);
+    collectRoutingRule(spec);
+}
+
+void configureStagesAndWorkItems(WorkflowDefinitionSpec& spec)
+{
+    heading("CONFIGURE STAGES AND WORK ITEMS");
+    if (spec.structure == WorkflowStructure::RuleDriven)
+        std::cout << "Task 2 is the rule gate; tasks 3 and 4 are the low/high alternatives. Other tasks are shared.\n";
+    for (;;) {
+        std::vector<std::string> names, stages, roles;
+        const int stageCount = askInt("Number of stages (1-8): ", 1, 8);
+        for (int stage = 0; stage < stageCount; ++stage) {
+            const std::string name = required("Stage name: ");
+            const int tasks = askInt("Number of work items in this stage (1-20): ", 1, 20);
+            for (int task = 0; task < tasks; ++task) {
+                names.push_back(required("Work item name: "));
+                stages.push_back(name);
+                const std::string role = ask("Assignee role (blank uses configured default): ");
+                roles.push_back(role.empty() ? spec.roles[(names.size() - 1) % spec.roles.size()] : role);
+            }
+        }
+        if (spec.structure == WorkflowStructure::RuleDriven && names.size() < 4) {
+            std::cout << "A rule-driven workflow needs at least four tasks. Configure the stages again.\n";
+            continue;
+        }
+        spec.sequence.swap(names);
+        spec.stageNames.swap(stages);
+        spec.workItemRoles.swap(roles);
+        return;
+    }
+}
+
+WorkflowDefinitionSpec defineWorkflow()
+{
+    WorkflowDefinitionSpec spec;
+    spec.method = chooseMethod();
+    spec.type = chooseType();
+    spec.structure = chooseStructure();
+    collectDetails(spec);
+    spec.sequence = templateSequence(spec.type, spec.structure);
+    for (;;)
+    {
+        printReview(spec);
+        const int action = askInt("Choose: ", 1, 7);
+        if (action == 1)
+            break;
+        if (action == 2) spec.method = chooseMethod();
+        else if (action == 3 || action == 4 || action == 5) {
+            if (action == 3) spec.type = chooseType();
+            if (action == 4) spec.structure = chooseStructure();
+            spec.fields.clear(); spec.ruleField.clear();
+            collectDetails(spec);
+            if (action != 5) {
+                spec.sequence = templateSequence(spec.type, spec.structure);
+                spec.stageNames.clear(); spec.workItemRoles.clear();
+            }
+        } else if (action == 7) configureStagesAndWorkItems(spec);
+        else throw std::runtime_error("Workflow definition cancelled.");
+    }
+    spec.id = "WF-" + std::to_string(gDefinitionSequence++);
+    return spec;
+}
+
+void printRuleEvaluation(const WorkflowDefinitionSpec& spec,
+                         const InstanceRecord& instance)
+{
+    if (spec.ruleField.empty())
+        return;
+    const std::string value = instance.data.find(spec.ruleField) == instance.data.end()
+        ? "" : instance.data.find(spec.ruleField)->second;
+    std::cout << "    Rule: " << spec.ruleField << " = " << value
+              << ", threshold = " << spec.threshold << "\n";
+    char* end = nullptr;
+    const double numeric = std::strtod(value.c_str(), &end);
+    if (end != value.c_str() && *end == '\0')
+        std::cout << "    Path: " << (numeric < spec.threshold ? spec.belowPath : spec.abovePath)
+                  << " (skipped: " << (numeric < spec.threshold ? spec.abovePath : spec.belowPath)
+                  << ")\n";
+}
+
+std::map<std::string, std::string> collectInstanceData(const WorkflowDefinitionSpec& spec)
+{
+    heading("ENTER WORKFLOW DATA");
+    std::map<std::string, std::string> data;
+    for (size_t i = 0; i < spec.fields.size(); ++i)
+    {
+        if (spec.fields[i].type == FieldType::Number)
+        {
+            std::ostringstream prompt;
+            prompt << spec.fields[i].name << " (number): ";
+            std::ostringstream value;
+            value << number(prompt.str());
+            data[spec.fields[i].name] = value.str();
+        }
+        else
+            data[spec.fields[i].name] = required(spec.fields[i].name + ": ");
+    }
+    return data;
+}
+
+void refreshRecord(InstanceRecord& record, WorkflowInstance* instance, WorkflowDefinition* definition)
+{
+    record.status = instance->getState();
+    record.result = engine->getOutcome(instance->getInstanceID());
+    record.completed.clear();
+    std::vector<LeafWorkItem*> leaves;
+    collectLeaves(definition->getRootElement(), leaves);
+    for (LeafWorkItem* item : leaves) {
+        const auto& payload = instance->getContext()->getAll();
+        const auto status = payload.find("workitem:" + item->getId() + ":status");
+        if (status != payload.end() && (status->second == "COMPLETED" || status->second == "APPROVED" || status->second == "SKIPPED"))
+            record.completed.push_back(item->getName());
+    }
+}
+
+void presentGenericTask(const WorkflowDefinitionSpec& spec, InstanceRecord& record,
+    WorkflowInstance* instance, WorkflowDefinition* definition, LeafWorkItem& item, bool before)
+{
+    if (before) {
+        const std::string role = item.getRoutingStrategy()->determineAssignee(item, *instance->getContext());
+        std::cout << "\n     Work item: " << item.getName() << "\n"
+                  << "     Step ID: " << item.getId() << "\n"
+                  << "     Assigned role: " << role << "\n"
+                  << "     Routing reason: " << item.getRoutingStrategy()->describe() << "\n";
+        if (spec.method == ExecutionMethod::Automated)
+            std::cout << "     Action: automatic execution by " << role << "\n";
+    } else {
+        refreshRecord(record, instance, definition);
+        const std::string role = instance->getContext()->getData("assignee:" + item.getId());
+        addHistory(record, record.status, instance->getEventName(), item.getName() + " by " + role);
+        if (spec.structure == WorkflowStructure::RuleDriven && item.getId() == spec.id + "-2")
+            printRuleEvaluation(spec, record);
+    }
+}
+
+void printProcessing(const WorkflowDefinitionSpec& spec, InstanceRecord& record,
+                     WorkflowInstance* instance, WorkflowDefinition* definition)
+{
+    const std::string id = instance->getInstanceID();
+    if (record.history.empty()) addHistory(record, instance->getState(), "WORKFLOW_STARTED", "Workflow instance started");
+    if (spec.method == ExecutionMethod::Automated) {
+        engine->runToCompletion(id, [&](LeafWorkItem& item, bool before) {
+            presentGenericTask(spec, record, instance, definition, item, before);
+        });
+    } else {
+        // This is a terminal interaction loop, not a progression algorithm:
+        // available work and every action are validated/selected by the facade.
+        while (LeafWorkItem* item = engine->getNextWorkItem(id)) {
+            presentGenericTask(spec, record, instance, definition, *item, true);
+            std::cout << "     Action: 1 Execute  2 Approve  3 Reject  4 Waitlist  5 Stop\n";
+            TerminalUI::choices({{"1", "Execute"}, {"2", "Approve"}, {"3", "Reject"}, {"4", "Waitlist"}, {"5", "Stop"}});
+            const int action = askInt("     Choose action: ", 1, 5);
+            if (action == 5) {
+                engine->recordEvent(id, "PAUSED");
+                refreshRecord(record, instance, definition);
+                addHistory(record, record.status, "PAUSED", "Manual execution paused; use Resume");
+                return;
+            }
+            if (action == 1) {
+                if (!instance->getWorkItemState(item->getId()).canExecute()) {
+                    std::cout << "     Work is already executed; choose Approve, Reject or Waitlist.\n";
+                    continue;
+                }
+                engine->executeStep(id, item->getId());
+            } else engine->advanceWorkflow(id, action == 3 ? "REJECT" : action == 4 ? "WAITLIST" : "APPROVE");
+            presentGenericTask(spec, record, instance, definition, *item, false);
+            if (instance->getState() == "WAITLISTED") return;
+        }
+    }
+    refreshRecord(record, instance, definition);
+    if (engine->canGenerateDocuments(id)) {
+        addHistory(record, record.status, instance->getEventName(), record.result);
+        std::cout << statusColour(record.status) << "\n  Result: " << record.result << "\n" << RESET;
+    }
+}
