@@ -116,6 +116,7 @@ public:
     void exportMetrics(WorkflowVisitor* visitor);
     /** @brief Looks up a running instance by its instance ID. @return Null if not found. */
     WorkflowInstance* getInstance(const std::string& instanceId);
+    std::vector<std::string> getInstanceIds() const;
     /** @brief Looks up a registered definition. @return Null if not found. */
     WorkflowDefinition* getDefinition(const std::string& defId);
     /** @brief Returns a read-only view of all registered definitions. */
