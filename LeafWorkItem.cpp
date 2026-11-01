@@ -1,31 +1,44 @@
 #include "LeafWorkItem.h"
+#include "WorkflowContext.h"
 #include "WorkflowComponent.h"
 #include "WorkItemState.h"
 #include "RoutingStrategy.h"
 #include "WorkflowVisitor.h"
 #include "ApprovalHandler.h"
 #include <string>
+#include <stdexcept>
+#include <cmath>
 
 LeafWorkItem::LeafWorkItem(const std::string &id, const std::string &name) : WorkflowComponent(id, name)
 {
 }
+
+LeafWorkItem::~LeafWorkItem()
+{
+    delete currentState;
+    delete routingStrategy;
+    delete approvalHandler;
+}
+
 void LeafWorkItem::execute(WorkflowContext* context)
 {
-    this->context = context; // Store the context for later use
+    if (!context) return;
 
     if (routingStrategy)
-        routingStrategy->determineAssignee(*this);
+        context->setData("assignee:" + id, routingStrategy->determineAssignee(*this, *context));
 
     if (approvalHandler && context)
     {
         std::string amount = "0";
         try { amount = context->getData("amount"); } catch (...) {}
+        context->setData("rule:" + id + ":count", "0");
         std::string decision = "PENDING";
-        approvalHandler->processRequest(amount, decision);
+        const std::string precheck =
+            approvalHandler->processRequest(amount, decision, *context, id);
+        context->setData("approval:" + id + ":precheck", precheck);
     }
 
-    if (currentState)
-        currentState->handle(this);
+    // Runtime state belongs to WorkflowInstance, never the shared definition.
 }
 
 void LeafWorkItem::accept(WorkflowVisitor *visitor)
@@ -42,6 +55,9 @@ WorkItemState* LeafWorkItem::getCurrentState() const
 }
 void LeafWorkItem::setState(WorkItemState *state)
 {
+    if (currentState == state)
+        return;
+    delete currentState;
     currentState = state;
 }
 
@@ -52,6 +68,9 @@ RoutingStrategy *LeafWorkItem::getRoutingStrategy() const
 
 void LeafWorkItem::setRoutingStrategy(RoutingStrategy *strategy)
 {
+    if (routingStrategy == strategy)
+        return;
+    delete routingStrategy;
     routingStrategy = strategy;
 }
 
@@ -62,12 +81,26 @@ ApprovalHandler<std::string>* LeafWorkItem::getApprovalHandler() const
 
 void LeafWorkItem::setApprovalHandler(ApprovalHandler<std::string>* handler)
 {
+    if (approvalHandler == handler)
+        return;
+    delete approvalHandler;
     approvalHandler = handler;
 }
 
-WorkflowContext* LeafWorkItem::getContext() const {
-    return context;
+void LeafWorkItem::setCondition(const std::string& key, double threshold, bool high)
+{
+    conditionKey = key;
+    conditionThreshold = threshold;
+    conditionHigh = high;
 }
-void LeafWorkItem::setContext(WorkflowContext* context){
-    this->context = context;
+
+bool LeafWorkItem::isEnabled(const WorkflowContext& context) const
+{
+    if (conditionKey.empty()) return true;
+    const std::string text = context.getData(conditionKey);
+    std::size_t parsed = 0;
+    const double value = std::stod(text, &parsed);
+    if (parsed != text.size() || !std::isfinite(value))
+        throw std::invalid_argument("Invalid branch value: " + conditionKey);
+    return (value >= conditionThreshold) == conditionHigh;
 }

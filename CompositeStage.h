@@ -1,3 +1,7 @@
+/**
+ * @file CompositeStage.h
+ * @brief Composite containing ordered workflow components and executing them as a stage.
+ */
 #ifndef COMPOSITESTAGE_H
 #define COMPOSITESTAGE_H
 
@@ -6,6 +10,10 @@
 #include <memory>
 
 
+/**
+ * @class CompositeStage
+ * @brief Composite containing ordered workflow components and executing them as a stage.
+ */
 class CompositeStage : public WorkflowComponent {
 private:
     std::vector<std::shared_ptr<WorkflowComponent>> children;
@@ -16,7 +24,7 @@ public:
     void add(std::shared_ptr<WorkflowComponent> component);
     void remove(std::shared_ptr<WorkflowComponent> component);
     const std::vector<std::shared_ptr<WorkflowComponent>>& getChildren() const;
-    void execute(WorkflowContext *context);
+    void execute(WorkflowContext *context) override;
     void accept(WorkflowVisitor *visitor) override;
 };
 

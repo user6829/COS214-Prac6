@@ -1,7 +1,6 @@
 /**
- *
- @file WorkflowComponent.h
- @brief The Component header file for the Composite design pattern
+ * @file WorkflowComponent.h
+ * @brief Common Component interface for composite stages and leaf work items.
  */
 #ifndef WORKFLOWCOMPONENT_H
 #define WORKFLOWCOMPONENT_H
@@ -11,6 +10,10 @@
 class WorkflowContext;
 class WorkflowVisitor;
 
+/**
+ * @class WorkflowComponent
+ * @brief Common Component interface for composite stages and leaf work items.
+ */
 class WorkflowComponent
 {
 protected:
