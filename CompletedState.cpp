@@ -7,5 +7,6 @@ std::string CompletedState::getStateName() const {
 }
 
 void CompletedState::handle(LeafWorkItem* item) {
+    (void)item; // The current state reports behaviour without inspecting the item.
     std::cout << "Work item has been completed.\n";
 }
