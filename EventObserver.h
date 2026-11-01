@@ -1,3 +1,7 @@
+/**
+ * @file EventObserver.h
+ * @brief Observer interface for receiving workflow-instance events.
+ */
 #ifndef EVENTOBSERVER_H
 #define EVENTOBSERVER_H
 
