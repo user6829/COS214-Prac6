@@ -1,3 +1,7 @@
+/**
+ * @file LegacyiHookAdapter.h
+ * @brief Adapter translating the workflow payload into the legacy API format.
+ */
 #ifndef LEGACYIHOOKADAPTER_H
 #define LEGACYIHOOKADAPTER_H
 
