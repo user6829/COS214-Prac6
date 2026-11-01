@@ -3,26 +3,29 @@
 
 #include "WorkflowBuilder.h"
 #include <string>
+#include <vector>
 
-// Forward declarations for private member types
 class WorkflowDefinition;
 class CompositeStage;
 class RoutingStrategy;
 
-class ConcreteWorkflowBuilder : public WorkflowBuilder {
+class ConcreteWorkflowBuilder : public WorkflowBuilder
+{
 private:
     WorkflowDefinition* currentDefinition;
     CompositeStage* currentContainer;
+    std::vector<CompositeStage*> openStages;
+    RoutingStrategy* pendingRouting;
 
 public:
     ConcreteWorkflowBuilder();
-    virtual ~ConcreteWorkflowBuilder();
+    ~ConcreteWorkflowBuilder() override;
 
-    void reset();
-    WorkflowBuilder& buildStage(const std::string& stageName);
-    WorkflowBuilder& buildWorkitem(const std::string& itemName);
-    WorkflowBuilder& setRoutingStrategy(RoutingStrategy* strategy);
-    WorkflowDefinition* getResult();
+    void reset() override;
+    WorkflowBuilder& buildStage(const std::string& stageName) override;
+    WorkflowBuilder& buildWorkitem(const std::string& itemName) override;
+    WorkflowBuilder& setRoutingStrategy(RoutingStrategy* strategy) override;
+    WorkflowDefinition* getResult() override;
 };
 
-#endif // CONCRETE_WORKFLOW_BUILDER_
+#endif
