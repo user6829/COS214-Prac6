@@ -1,8 +1,0 @@
-# Undergraduate admissions rules (data, evaluated by TividyEngineFacade::runWorkflow)
-# stepId | ruleId | name | field | operator | operand | comparedText | failureText
-# Programme-specific values (minAps, requiredSubject, seatsTaken, seatThreshold) are placed in the
-# instance payload from the programme table, so one definition serves every programme.
-undergrad-aps | aps | Academic score (APS) | aps | >= | @minAps | Your APS {aps}; required {minAps} | Your APS of {aps} is below the {minAps} required for this programme.
-undergrad-aps | subjects | Required subjects | subjects | contains | @requiredSubject | Selected {subjects}; required {requiredSubject} | The required subject is not among the subjects you selected.
-undergrad-english | english | English level | englishLevel | >= | 4 | Your level {englishLevel}; required 4 | Your English level of {englishLevel} is below the required level 4.
-undergrad-issue-offer | capacity | Programme space | seatsTaken | < | @seatThreshold | {programme}: {seatsTaken} seats taken; capacity {capacity}; threshold {seatThreshold} | This programme is currently at capacity.
