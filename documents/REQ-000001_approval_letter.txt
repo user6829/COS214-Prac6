@@ -1,0 +1,17 @@
+========================================
+TIVIDY PROCUREMENT APPROVAL LETTER
+========================================
+Date: 2026-10-31
+Requester: John Doe
+Role: Project manager
+Request reference: REQ-000001
+Instance ID: INST-1
+Project: Civic Centre
+Material: Concrete
+Quantity: 500 bags
+Supplier: BuildPro Supplies
+Estimated cost: R125000.00
+Result: APPROVED
+Purchase-order reference: PO-000001
+Next steps: arrange delivery and complete the inspection.
+========================================

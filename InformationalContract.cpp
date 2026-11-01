@@ -2,6 +2,10 @@
 #include <iostream>
 
 void InformationalContract::print() {
+    if (!render().empty()) {
+        std::cout << render();
+        return;
+    }
     std::cout << "========================================\n";
     std::cout << "        INFORMATIONAL CONTRACT\n";
     std::cout << "========================================\n";

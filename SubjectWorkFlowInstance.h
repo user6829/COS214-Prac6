@@ -10,6 +10,10 @@
 
 class EventObserver;
 class WorkflowMemento;
+/**
+ * @class SubjectWorkFlowInstance
+ * @brief Subject interface for workflow instances that publish events to observers.
+ */
 class SubjectWorkFlowInstance
 {
 public:

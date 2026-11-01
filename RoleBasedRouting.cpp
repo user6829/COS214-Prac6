@@ -1,4 +1,5 @@
 #include "RoleBasedRouting.h"
+#include "WorkflowContext.h"
 
 #include <stdexcept>
 
@@ -13,7 +14,7 @@ RoleBasedRouting::~RoleBasedRouting() {
     // Nothing to release: the only member is a std::string.
 }
 
-std::string RoleBasedRouting::determineAssignee(const LeafWorkItem&) const {
+std::string RoleBasedRouting::determineAssignee(const LeafWorkItem&, const WorkflowContext&) const {
     return targetRole;
 }
 

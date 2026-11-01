@@ -1,6 +1,11 @@
+/**
+ * @file HandlerA.h
+ * @brief Concrete first handler in the approval Chain of Responsibility.
+ */
 #ifndef HANDLER_A_H
 #define HANDLER_A_H
 #include "ApprovalHandler.h"
+#include "WorkflowContext.h"
 #include <string>
 
 /**
@@ -17,6 +22,9 @@ class HandlerA : public ApprovalHandler<T>{
          * @return The resulting decision or processed amount.
          */
         T processRequest(T amount, const std::string& decision)override;
+        T processRequest(T amount, const std::string& decision,
+                         WorkflowContext& context,
+                         const std::string& stepId) override;
 };
 
 #endif

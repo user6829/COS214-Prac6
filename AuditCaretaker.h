@@ -1,8 +1,13 @@
+/**
+ * @file AuditCaretaker.h
+ * @brief Owns and indexes workflow mementos used for audit history and rollback.
+ */
 #ifndef AUDIT_CARETAKER_H
 #define AUDIT_CARETAKER_H
 
 #include "WorkflowMemento.h"
 #include <list>
+#include <string>
 
 /**
  * @brief Manages and maintains the history of WorkflowMemento objects.
@@ -15,6 +20,9 @@ private:
     std::list<WorkflowMemento*> history;
 
 public:
+    AuditCaretaker() = default;
+    AuditCaretaker(const AuditCaretaker&) = delete;
+    AuditCaretaker& operator=(const AuditCaretaker&) = delete;
     int size() const;
     /**
      * @brief Destructor for cleaning up stored mementos.
@@ -33,6 +41,10 @@ public:
      * @return Pointer to the WorkflowMemento at the specified index, or nullptr if out of bounds.
      */
     WorkflowMemento* getSnapshot(int index);
+    /** Returns the zero-based snapshot belonging to one instance only. */
+    WorkflowMemento* getSnapshot(const std::string& instanceId, int index);
+    /** Number of snapshots belonging to one instance. */
+    int size(const std::string& instanceId) const;
 };
 
 #endif

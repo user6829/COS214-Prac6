@@ -1,6 +1,7 @@
 #include "ValueThresholdRouting.h"
 
 #include <cstdlib>
+#include <cmath>
 #include <sstream>
 #include <stdexcept>
 
@@ -15,7 +16,7 @@ double parseNumber(const std::string& text, const std::string& key) {
     }
     char* end = nullptr;
     double value = std::strtod(text.c_str(), &end);
-    if (end == text.c_str() || *end != '\0') {
+    if (end == text.c_str() || *end != '\0' || !std::isfinite(value)) {
         throw std::runtime_error("ValueThresholdRouting: data key '" + key +
                                  "' is not a number: '" + text + "'");
     }
@@ -24,9 +25,9 @@ double parseNumber(const std::string& text, const std::string& key) {
 } // namespace
 
 ValueThresholdRouting::ValueThresholdRouting(const std::string& key,double limit,const std::string& lowRole,const std::string& highRole)
-    : valueKey(key),thresholdAmount(limit),lowValueRole(lowRole),highValueRole(highRole)
+    : highValueRole(highRole), lowValueRole(lowRole), thresholdAmount(limit), valueKey(key)
 {
-    if (valueKey.empty() || lowValueRole.empty() || highValueRole.empty()) {
+    if (valueKey.empty() || lowValueRole.empty() || highValueRole.empty() || !std::isfinite(limit)) {
         throw std::invalid_argument("ValueThresholdRouting: key and roles must not be empty");
     }
 }
@@ -41,12 +42,8 @@ ValueThresholdRouting::~ValueThresholdRouting() {
     // Nothing to release: the members are a double and std::strings.
 }
 
-std::string ValueThresholdRouting::determineAssignee(const LeafWorkItem& item) const {
-    WorkflowContext* context = item.getContext();
-    if (context == nullptr) {
-        throw std::runtime_error("ValueThresholdRouting: work item has no workflow data attached");
-    }
-    double value = parseNumber(context->getData(valueKey), valueKey);
+std::string ValueThresholdRouting::determineAssignee(const LeafWorkItem&, const WorkflowContext& context) const {
+    double value = parseNumber(context.getData(valueKey), valueKey);
     return (value >= thresholdAmount) ? highValueRole : lowValueRole;
 }
 

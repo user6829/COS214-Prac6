@@ -12,7 +12,7 @@
 
 CXX      := g++
 CXXFLAGS := -std=c++11 -Wall -Wextra -g -I.
-LDFLAGS  :=
+LDFLAGS  := -lncurses
 
 # Platform-aware target name
 ifeq ($(OS),Windows_NT)
@@ -23,6 +23,9 @@ endif
 
 SRCS := \
     main.cpp \
+    TerminalUI.cpp \
+    BudgetLedger.cpp \
+    WorkflowTemplateFactory.cpp \
     WorkflowContext.cpp \
     WorkflowComponent.cpp \
     CompositeStage.cpp \
@@ -42,12 +45,16 @@ SRCS := \
     ApprovalHandler.cpp \
     HandlerA.cpp \
     HandlerB.cpp \
+    UniversityRuleHandler.cpp \
+    ProcurementRuleHandler.cpp \
     MetricsReportVisitor.cpp \
     NotificationObserver.cpp \
     StateObserver.cpp \
     AuditLoggerObserver.cpp \
     ConcreteWorkflowBuilder.cpp \
     Director.cpp \
+    UniversityWorkflowDirector.cpp \
+    ProcurementWorkflowDirector.cpp \
     InformationalContract.cpp \
     InformationalGuideline.cpp \
     TransactionalContract.cpp \
@@ -61,14 +68,19 @@ SRCS := \
     TividyEngineFacade.cpp
 
 OBJS := $(SRCS:.cpp=.o)
+# Rebuild after header changes without generating dependency files.
+HEADERS := $(wildcard *.h *.hpp)
 
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS)
 
-%.o: %.cpp
+%.o: %.cpp $(HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+docs:
+	doxygen Doxyfile
 
 run: $(TARGET)
 ifeq ($(OS),Windows_NT)
@@ -79,9 +91,37 @@ endif
 
 clean:
 ifeq ($(OS),Windows_NT)
-	-del /Q $(OBJS) $(TARGET) 2>NUL
+	-del /Q $(OBJS) $(OBJS:.o=.d) $(TARGET) tests/engine_tests tests/engine_tests.d tests/interactive_workflows 2>NUL
 else
-	rm -f $(OBJS) $(TARGET)
+	rm -f $(OBJS) $(OBJS:.o=.d) $(TARGET) tests/engine_tests tests/engine_tests.d tests/interactive_workflows
 endif
 
-.PHONY: all clean run
+.PHONY: all clean run docs
+
+TEST_OBJS := $(filter-out main.o TerminalUI.o,$(OBJS))
+tests/engine_tests: tests/engine_tests.cpp $(TEST_OBJS) $(HEADERS)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(TEST_OBJS) $(LDFLAGS)
+
+test: $(TARGET) tests/engine_tests
+	./tests/engine_tests
+	sh tests/run_golden.sh
+	python3 tests/run_scenarios.py
+
+.PHONY: test
+
+# Uses a real PTY and only Python's standard library; no display server is needed.
+test-tui: $(TARGET)
+	TIVIDY_TEST_TUI=1 python3 tests/run_scenarios.py
+	python3 tests/test_tui_controls.py
+
+.PHONY: test-tui
+
+# Focused checks for screened submissions and human review; no extra dependencies.
+tests/interactive_workflows: tests/interactive_workflows.cpp $(OBJS) $(HEADERS)
+	$(CXX) $(CXXFLAGS) -o $@ $< $(filter-out main.o,$(OBJS)) $(LDFLAGS)
+
+test-interactive: $(TARGET) tests/interactive_workflows
+	./tests/interactive_workflows
+	python3 tests/interactive_smoke.py
+
+.PHONY: test-interactive

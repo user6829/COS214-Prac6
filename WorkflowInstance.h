@@ -41,7 +41,9 @@ private:
 public:
     WorkflowInstance(const WorkflowInstance&) = delete;
     WorkflowInstance& operator=(const WorkflowInstance&) = delete;
+    /** Publish one consistent state/event notification. */
     void publish(const std::string& nextState, const std::string& event);
+    /** Runtime states are owned per instance and reconstructed after rollback. */
     WorkItemState& getWorkItemState(const std::string& stepId);
     void transitionWorkItem(const std::string& stepId, const std::string& status);
     /**

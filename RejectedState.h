@@ -1,12 +1,16 @@
 /**
  * @file RejectedState.h
- * @brief The header file for the concrete state, Rejected
+ * @brief Concrete State representing a rejected work item.
  */
 #ifndef REJECTEDSTATE_H
 #define REJECTEDSTATE_H
 
 #include "WorkItemState.h"
 
+/**
+ * @class RejectedState
+ * @brief Concrete State representing a rejected work item.
+ */
 class RejectedState: public WorkItemState {
     public:
     std::string getStateName() const override;

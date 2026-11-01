@@ -2,6 +2,10 @@
 #include <iostream>
 
 void InformationalGuideline::print() {
+    if (!render().empty()) {
+        std::cout << render();
+        return;
+    }
     std::cout << "========================================\n";
     std::cout << "       INFORMATIONAL GUIDELINE\n";
     std::cout << "========================================\n";

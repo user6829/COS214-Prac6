@@ -2,6 +2,10 @@
 #include <iostream>
 
 void TransactionalContract::print() {
+    if (!render().empty()) {
+        std::cout << render();
+        return;
+    }
     std::cout << "========================================\n";
     std::cout << "        TRANSACTIONAL CONTRACT\n";
     std::cout << "========================================\n";

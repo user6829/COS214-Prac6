@@ -1,0 +1,15 @@
+TIVIDY WORKFLOW RESULT
+Reference: INST-1
+Workflow: hgfd
+Industry: fghgf
+Tuple: Automated / Case / Rule-driven
+Status: Completed
+Result: COMPLETED
+
+Processing history:
+Inactive | WORKFLOW_STARTED | Workflow instance started
+Active | APPROVAL_APPROVE:WF-1-1 | cas-rul-Register by hgre
+Active | APPROVAL_APPROVE:WF-1-2 | cas-rul-Severity Gate by 2
+Active | APPROVAL_APPROVE:WF-1-4 | cas-rul-Investigation and Escalated Review by hgre
+Completed | WORKFLOW_COMPLETED | cas-rul-Close by gfds
+Completed | WORKFLOW_COMPLETED | COMPLETED

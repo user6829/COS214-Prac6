@@ -1,3 +1,7 @@
+/**
+ * @file WorkflowMemento.h
+ * @brief Snapshot of workflow-instance data used by the caretaker for rollback.
+ */
 #ifndef WORKFLOW_MEMENTO_H
 #define WORKFLOW_MEMENTO_H
 
@@ -14,6 +18,8 @@ private:
     std::string timestamp;                           
 
 public:
+    WorkflowMemento(const WorkflowMemento&) = delete;
+    WorkflowMemento& operator=(const WorkflowMemento&) = delete;
     /**
      * @brief Constructs a WorkflowMemento object.
      * @param state Pointer to a map containing state data.

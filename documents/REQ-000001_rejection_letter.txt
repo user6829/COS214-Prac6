@@ -1,0 +1,19 @@
+========================================
+TIVIDY PROCUREMENT REJECTION LETTER
+========================================
+Date: 2026-10-30
+Requester: kiklid ddc
+Role: Site manager
+Request reference: REQ-000001
+Instance ID: INST-1
+Project: sdd
+Material: Steel
+Quantity: 600 bags
+Supplier: eremate
+Estimated cost: R1234570.00
+Result: REJECTED
+Reasons for rejection:
+- The selected supplier is not approved for procurement.
+- The request exceeds your approval limit of R150000.00.
+- Insufficient funds remain for Steel.
+========================================

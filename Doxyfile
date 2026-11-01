@@ -1,0 +1,25 @@
+# Doxygen configuration for TIVIDY (C++11).
+PROJECT_NAME           = "TIVIDY Workflow Management System"
+PROJECT_BRIEF          = "Reusable workflow engine for university admissions and construction procurement"
+OUTPUT_DIRECTORY       = docs/doxygen
+INPUT                  = .
+FILE_PATTERNS           = *.h *.cpp
+RECURSIVE               = NO
+EXCLUDE                = docs docs/doxygen generic_driver_reference.cpp backup
+EXTRACT_ALL             = YES
+EXTRACT_PRIVATE        = YES
+EXTRACT_STATIC         = YES
+HIDE_UNDOC_MEMBERS     = NO
+HIDE_UNDOC_CLASSES     = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED    = YES
+WARN_IF_DOC_ERROR       = YES
+WARN_NO_PARAMDOC        = YES
+JAVADOC_AUTOBRIEF       = YES
+QT_AUTOBRIEF            = YES
+OPTIMIZE_OUTPUT_FOR_C   = NO
+MARKDOWN_SUPPORT        = YES
+GENERATE_HTML           = YES
+GENERATE_LATEX          = NO
+QUIET                   = NO
+WARN_LOGFILE            = docs/doxygen-warnings.log

@@ -8,5 +8,6 @@ std::string ActiveState::getStateName() const {
 }
 
 void ActiveState::handle(LeafWorkItem* item) {
+    (void)item; // The current state reports behaviour without inspecting the item.
     std::cout << "Work item is Active.\n" ; 
 }

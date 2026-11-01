@@ -1,0 +1,16 @@
+TIVIDY WORKFLOW RESULT
+Reference: INST-1
+Workflow: Loan Approval
+Industry: Banking
+Tuple: Manual / Approval / Rule-driven
+Status: Completed
+Result: Approval workflow completed
+
+Processing history:
+Active | WORKFLOW_STARTED | Workflow instance started
+Active | WORK_ITEM_COMPLETED | app-rul-Submit completed
+Active | WORK_ITEM_COMPLETED | app-rul-Value Gate completed
+Active | WORK_ITEM_COMPLETED | app-rul-Single Approval completed
+Active | WORK_ITEM_COMPLETED | app-rul-Review and Director Approval completed
+Active | WORK_ITEM_COMPLETED | app-rul-Notify completed
+Completed | WORKFLOW_COMPLETED | Approval workflow completed
