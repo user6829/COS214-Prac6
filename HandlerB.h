@@ -1,6 +1,11 @@
+/**
+ * @file HandlerB.h
+ * @brief Concrete escalation handler in the approval Chain of Responsibility.
+ */
 #ifndef HANDLER_B_H
 #define HANDLER_B_H
 #include "ApprovalHandler.h"
+#include "WorkflowContext.h"
 #include <string>
 
 /**
@@ -18,5 +23,8 @@ public:
      * @return The resulting decision or processed amount.
      */
     T processRequest(T amount, const std::string& decision) override;
+    T processRequest(T amount, const std::string& decision,
+                     WorkflowContext& context,
+                     const std::string& stepId) override;
 };
 #endif
