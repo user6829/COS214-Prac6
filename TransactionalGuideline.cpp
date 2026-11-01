@@ -2,6 +2,10 @@
 #include <iostream>
 
 void TransactionalGuideline::print() {
+    if (!render().empty()) {
+        std::cout << render();
+        return;
+    }
     std::cout << "========================================\n";
     std::cout << "       TRANSACTIONAL GUIDELINE\n";
     std::cout << "========================================\n";
