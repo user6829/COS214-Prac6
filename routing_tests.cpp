@@ -2,8 +2,7 @@
  * @file testRouting.cpp
  * @brief Doctest unit tests for the TIVIDY Strategy-pattern routing classes.
  *
- * This file intentionally does NOT define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN.
- * The group's shared test runner must provide doctest's main() exactly once.
+ * 
  */
 #include "doctest.h"
 
