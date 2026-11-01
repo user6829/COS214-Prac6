@@ -1,3 +1,7 @@
+/**
+ * @file LegacyiHookAPI.h
+ * @brief Legacy external-system API (Adaptee) with its original payload format.
+ */
 #ifndef LEGACYIHOOKAPI_H
 #define LEGACYIHOOKAPI_H
 
