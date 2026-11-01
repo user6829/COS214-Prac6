@@ -1,81 +1,174 @@
+/**
+ * @file testRouting.cpp
+ * @brief Doctest unit tests for the TIVIDY Strategy-pattern routing classes.
+ *
+ * This file intentionally does NOT define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN.
+ * The group's shared test runner must provide doctest's main() exactly once.
+ */
+#include "doctest.h"
+
 #include "RoutingStrategy.h"
 #include "RoleBasedRouting.h"
 #include "ValueThresholdRouting.h"
 #include "WorkflowContext.h"
-#include <iostream>
-#include <stdexcept>
-#include <string>
-#include <limits>
-#include <cmath>
-
-// These routing implementations do not dereference the LeafWorkItem argument.
-// A null pointer is never dereferenced; it only supplies a reference for tests.
-// Instead of inventing a dummy LeafWorkItem, use an actual LeafWorkItem object.
 #include "LeafWorkItem.h"
 
-static int passed = 0;
-static int failed = 0;
-void check(bool condition, const std::string& name) {
-    if (condition) { ++passed; std::cout << "PASS " << name << '\n'; }
-    else { ++failed; std::cout << "FAIL " << name << '\n'; }
-}
-template <typename E, typename F>
-void throwsAs(F fn, const std::string& name) {
-    try { fn(); check(false, name); }
-    catch (const E&) { check(true, name); }
-    catch (...) { check(false, name); }
-}
-int main() {
+#include <limits>
+#include <stdexcept>
+
+TEST_SUITE("Routing strategies") {
+
+TEST_CASE("RoutingStrategy: polymorphic dispatch through base interface") {
     WorkflowContext context;
-    // Storage is provided by a real LeafWorkItem; the strategy never accesses it.
-    // Avoid linking the entire application by using a reference to suitably aligned
-    // inert storage, safe only because these implementations do not access the item.
-    alignas(LeafWorkItem) unsigned char storage[sizeof(LeafWorkItem)];
-    const LeafWorkItem& item = *reinterpret_cast<const LeafWorkItem*>(storage);
-
-    RoleBasedRouting role("AdmissionsOfficer");
-    const RoutingStrategy& base = role;
-    check(base.determineAssignee(item, context) == "AdmissionsOfficer", "RoleBased: fixed role through abstract Strategy");
-    check(role.describe() == "always AdmissionsOfficer", "RoleBased: description");
-    context.setData("amount", "999999");
-    check(role.determineAssignee(item, context) == "AdmissionsOfficer", "RoleBased: ignores unrelated workflow data");
-    throwsAs<std::invalid_argument>([](){ RoleBasedRouting invalid(""); }, "RoleBased: empty role rejected");
-
-    ValueThresholdRouting threshold("amount", 1000.0, "Manager", "Director");
-    context.setData("amount", "999.99");
-    check(threshold.determineAssignee(item, context) == "Manager", "Threshold: below limit");
-    context.setData("amount", "1000");
-    check(threshold.determineAssignee(item, context) == "Director", "Threshold: exactly at limit");
-    context.setData("amount", "1000.01");
-    check(threshold.determineAssignee(item, context) == "Director", "Threshold: above limit");
-    context.setData("amount", "-10");
-    check(threshold.determineAssignee(item, context) == "Manager", "Threshold: negative numeric input");
-    context.setData("amount", "0");
-    check(threshold.determineAssignee(item, context) == "Manager", "Threshold: zero numeric input");
-    check(threshold.describe() == "amount >= 1000 -> Director, otherwise Manager", "Threshold: description");
-    ValueThresholdRouting defaultKey(1000, "Manager", "Director");
-    context.setData("amount", "1000");
-    check(defaultKey.determineAssignee(item, context) == "Director", "Threshold: convenience constructor uses amount");
-    ValueThresholdRouting customKey("aps", 30, "Reviewer", "FacultyBoard");
-    context.setData("aps", "31");
-    check(customKey.determineAssignee(item, context) == "FacultyBoard", "Threshold: custom key");
-    throwsAs<std::invalid_argument>([](){ ValueThresholdRouting x("", 100, "A", "B"); }, "Threshold: empty key rejected");
-    throwsAs<std::invalid_argument>([](){ ValueThresholdRouting x("amount", 100, "", "B"); }, "Threshold: empty low role rejected");
-    throwsAs<std::invalid_argument>([](){ ValueThresholdRouting x("amount", 100, "A", ""); }, "Threshold: empty high role rejected");
-    throwsAs<std::invalid_argument>([](){ ValueThresholdRouting x("amount", std::numeric_limits<double>::infinity(), "A", "B"); }, "Threshold: infinite limit rejected");
-    throwsAs<std::invalid_argument>([](){ ValueThresholdRouting x("amount", std::numeric_limits<double>::quiet_NaN(), "A", "B"); }, "Threshold: NaN limit rejected");
-    context.setData("amount", "");
-    throwsAs<std::runtime_error>([&](){ threshold.determineAssignee(item, context); }, "Threshold: empty value rejected");
-    context.setData("amount", "abc");
-    throwsAs<std::runtime_error>([&](){ threshold.determineAssignee(item, context); }, "Threshold: nonnumeric value rejected");
-    context.setData("amount", "1000abc");
-    throwsAs<std::runtime_error>([&](){ threshold.determineAssignee(item, context); }, "Threshold: trailing characters rejected");
-    context.setData("amount", "nan");
-    throwsAs<std::runtime_error>([&](){ threshold.determineAssignee(item, context); }, "Threshold: NaN data rejected");
-    context.setData("amount", "inf");
-    throwsAs<std::runtime_error>([&](){ threshold.determineAssignee(item, context); }, "Threshold: infinite data rejected");
-    WorkflowContext missing;
-    throwsAs<std::out_of_range>([&](){ threshold.determineAssignee(item, missing); }, "Threshold: missing data key throws out_of_range");
-    std::cout << "RESULT: " << passed << " passed, " << failed << " failed\n";
-    return failed == 0 ? 0 : 1;
+    LeafWorkItem item("route-1", "Review application");
+    RoleBasedRouting routing("AdmissionsOfficer");
+    const RoutingStrategy& strategy = routing;
+    CHECK(strategy.determineAssignee(item, context) == "AdmissionsOfficer");
 }
+
+TEST_CASE("RoleBasedRouting: description names the fixed role") {
+    RoleBasedRouting routing("AdmissionsOfficer");
+    CHECK(routing.describe() == "always AdmissionsOfficer");
+}
+
+TEST_CASE("RoleBasedRouting: ignores unrelated workflow data") {
+    WorkflowContext context;
+    LeafWorkItem item("route-2", "Review application");
+    RoleBasedRouting routing("AdmissionsOfficer");
+    context.setData("amount", "999999");
+    CHECK(routing.determineAssignee(item, context) == "AdmissionsOfficer");
+}
+
+TEST_CASE("RoleBasedRouting: rejects an empty role") {
+    CHECK_THROWS_AS(RoleBasedRouting(""), std::invalid_argument);
+}
+
+TEST_CASE("ValueThresholdRouting: below threshold uses low role") {
+    WorkflowContext context;
+    LeafWorkItem item("route-3", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "999.99");
+    CHECK(routing.determineAssignee(item, context) == "Manager");
+}
+
+TEST_CASE("ValueThresholdRouting: equal to threshold uses high role") {
+    WorkflowContext context;
+    LeafWorkItem item("route-4", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "1000");
+    CHECK(routing.determineAssignee(item, context) == "Director");
+}
+
+TEST_CASE("ValueThresholdRouting: above threshold uses high role") {
+    WorkflowContext context;
+    LeafWorkItem item("route-5", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "1000.01");
+    CHECK(routing.determineAssignee(item, context) == "Director");
+}
+
+TEST_CASE("ValueThresholdRouting: negative numeric value uses low role") {
+    WorkflowContext context;
+    LeafWorkItem item("route-6", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "-10");
+    CHECK(routing.determineAssignee(item, context) == "Manager");
+}
+
+TEST_CASE("ValueThresholdRouting: zero numeric value uses low role") {
+    WorkflowContext context;
+    LeafWorkItem item("route-7", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "0");
+    CHECK(routing.determineAssignee(item, context) == "Manager");
+}
+
+TEST_CASE("ValueThresholdRouting: description explains threshold") {
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    CHECK(routing.describe() == "amount >= 1000 -> Director, otherwise Manager");
+}
+
+TEST_CASE("ValueThresholdRouting: convenience constructor reads amount") {
+    WorkflowContext context;
+    LeafWorkItem item("route-8", "Approve requisition");
+    ValueThresholdRouting routing(1000.0, "Manager", "Director");
+    context.setData("amount", "1000");
+    CHECK(routing.determineAssignee(item, context) == "Director");
+}
+
+TEST_CASE("ValueThresholdRouting: custom data key is respected") {
+    WorkflowContext context;
+    LeafWorkItem item("route-9", "Review academic eligibility");
+    ValueThresholdRouting routing("aps", 30.0, "Reviewer", "FacultyBoard");
+    context.setData("aps", "31");
+    CHECK(routing.determineAssignee(item, context) == "FacultyBoard");
+}
+
+TEST_CASE("ValueThresholdRouting: rejects an empty key") {
+    CHECK_THROWS_AS(ValueThresholdRouting("", 100.0, "A", "B"), std::invalid_argument);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects an empty low role") {
+    CHECK_THROWS_AS(ValueThresholdRouting("amount", 100.0, "", "B"), std::invalid_argument);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects an empty high role") {
+    CHECK_THROWS_AS(ValueThresholdRouting("amount", 100.0, "A", ""), std::invalid_argument);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects infinite threshold") {
+    CHECK_THROWS_AS(ValueThresholdRouting("amount", std::numeric_limits<double>::infinity(), "A", "B"), std::invalid_argument);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects NaN threshold") {
+    CHECK_THROWS_AS(ValueThresholdRouting("amount", std::numeric_limits<double>::quiet_NaN(), "A", "B"), std::invalid_argument);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects empty data value") {
+    WorkflowContext context;
+    LeafWorkItem item("route-10", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "");
+    CHECK_THROWS_AS(routing.determineAssignee(item, context), std::runtime_error);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects nonnumeric data") {
+    WorkflowContext context;
+    LeafWorkItem item("route-11", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "abc");
+    CHECK_THROWS_AS(routing.determineAssignee(item, context), std::runtime_error);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects trailing nonnumeric characters") {
+    WorkflowContext context;
+    LeafWorkItem item("route-12", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "1000abc");
+    CHECK_THROWS_AS(routing.determineAssignee(item, context), std::runtime_error);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects NaN workflow data") {
+    WorkflowContext context;
+    LeafWorkItem item("route-13", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "nan");
+    CHECK_THROWS_AS(routing.determineAssignee(item, context), std::runtime_error);
+}
+
+TEST_CASE("ValueThresholdRouting: rejects infinite workflow data") {
+    WorkflowContext context;
+    LeafWorkItem item("route-14", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    context.setData("amount", "inf");
+    CHECK_THROWS_AS(routing.determineAssignee(item, context), std::runtime_error);
+}
+
+TEST_CASE("ValueThresholdRouting: missing workflow key throws out_of_range") {
+    WorkflowContext context;
+    LeafWorkItem item("route-15", "Approve requisition");
+    ValueThresholdRouting routing("amount", 1000.0, "Manager", "Director");
+    CHECK_THROWS_AS(routing.determineAssignee(item, context), std::out_of_range);
+}
+
+} // TEST_SUITE
