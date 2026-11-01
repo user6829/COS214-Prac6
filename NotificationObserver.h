@@ -1,3 +1,7 @@
+/**
+ * @file NotificationObserver.h
+ * @brief Observer that displays user-facing workflow notifications.
+ */
 #ifndef NOTIFICATIONOBSERVER_H
 #define NOTIFICATIONOBSERVER_H
 
@@ -10,7 +14,12 @@
 
 class NotificationObserver : public EventObserver
 {
+private:
+    bool verbose;
+
 public:
+    NotificationObserver() : verbose(true) {}
+    void setVerbose(bool enabled) { verbose = enabled; }
     void update(SubjectWorkFlowInstance& s);
 };
 

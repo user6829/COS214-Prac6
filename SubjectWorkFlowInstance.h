@@ -1,3 +1,7 @@
+/**
+ * @file SubjectWorkFlowInstance.h
+ * @brief Subject interface for workflow instances that publish events to observers.
+ */
 #ifndef SUBJECTWORKFLOWINSTANCE_H
 #define SUBJECTWORKFLOWINSTANCE_H
 
@@ -6,6 +10,10 @@
 
 class EventObserver;
 class WorkflowMemento;
+/**
+ * @class SubjectWorkFlowInstance
+ * @brief Subject interface for workflow instances that publish events to observers.
+ */
 class SubjectWorkFlowInstance
 {
 public:
