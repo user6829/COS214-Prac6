@@ -1,7 +1,13 @@
+/**
+ * @file RoutingStrategy.h
+ * @brief Strategy interface for choosing a work-item assignee.
+ */
 #ifndef ROUTINGSTRATEGY_H
 #define ROUTINGSTRATEGY_H
 
 #include <string>
+
+class WorkflowContext;
 
 class LeafWorkItem;
 
@@ -25,10 +31,12 @@ class LeafWorkItem;
  * The result is an assignee identifier: a role name or a participant id. The
  * engine resolves it to a real participant.
  *
- * Ownership: a work item does NOT own its strategy. Whoever creates the
- * strategies (the scenario factory) keeps them alive and deletes them.
- * Strategies never change after construction, so one object may be shared by
- * many work items and many workflow instances without leaking state between them.
+ * Ownership: a work item owns the strategy assigned through setRoutingStrategy.
+ * Strategies should therefore not be shared between work items.
+ */
+/**
+ * @class RoutingStrategy
+ * @brief Strategy interface for choosing a work-item assignee.
  */
 class RoutingStrategy {
 public:
@@ -37,10 +45,10 @@ public:
     /**
      * @brief Chooses the assignee for @p item using the instance's data.
      * @param item the work item being routed. Rules that need workflow data read it
-     *             through item.getContext().
+     *             from the supplied instance context.
      * @throws std::runtime_error if data the rule needs is missing or invalid.
      */
-    virtual std::string determineAssignee(const LeafWorkItem& item) const = 0;
+    virtual std::string determineAssignee(const LeafWorkItem& item, const WorkflowContext& context) const = 0;
 
     /// Human-readable description of the rule, for history and the user interface.
     virtual std::string describe() const = 0;
